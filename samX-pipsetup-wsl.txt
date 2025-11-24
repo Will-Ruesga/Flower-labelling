@@ -1,0 +1,149 @@
+##################################
+# Set up Pytorch & SAM2 with Pip #
+##################################
+
+
+### 1 - Install WSL2 ###
+
+# Open Windows PowerShell and run the following commands
+	```
+		wsl --install # Follow the installation instructions
+	```
+	
+	# Check if it worked by using
+	```
+		wsl --version
+	```
+	
+	# Should show something similar to this
+	```
+		# WSL version: 2.6.1.0
+		# Kernel version: 6.6.87.2-1
+		# WSLg version: 1.0.66
+		# MSRDC version: 1.2.6353
+		# Direct3D version: 1.611.1-81528511
+		# DXCore version: 10.0.26100.1-240331-1435.ge-release
+		# Windows version: 10.0.26100.4770
+	```
+	
+
+### 2 - Setup WSL2 ###
+
+# Open Windows Terminal app and select a new Ubuntu window
+# (If desired Ubuntu can be set up as the default in the Terminal app)
+# Run the following commands
+
+	# Install essentials
+	```
+		sudo apt update && sudo apt upgrade -y
+		sudo apt install python3-pip python3-venv python3-full -y
+		sudo apt install pipx -y
+	```
+	
+	# Ensure shell can look files installed by pipx
+	```	
+		pipx ensurepath
+	```
+	
+	# Install virtualenv and virtualenvwrapper to be able to
+	# create and manage your virtual environments in one place
+	# all virtual environments will be stored under: $HOME/.virtualenvs/
+	# avoiding creating a folder of the environment inside the project
+	```
+		pipx install virtualenv
+		pipx install virtualenvwrapper
+	```
+	
+	# Check the paths
+	```
+		which virtualenv
+		pipx list
+	```
+	
+	# Open .bashrc (the shell startup file) with file editor (vim, nano,...)
+	```
+		vim ~/.bashrc
+	```
+	
+	# Copy the following virtualenvwrapper configuration at the end of the .bashrc file
+	```
+		# Directory for virtual environments
+		export WORKON_HOME=$HOME/.virtualenvs
+
+		# Python interpreter used by virtualenvwrapper (from pipx)
+		export VIRTUALENVWRAPPER_PYTHON=$HOME/.local/share/pipx/venvs/virtualenvwrapper/bin/python
+
+		# Virtualenv command (from pipx)
+		export VIRTUALENVWRAPPER_VIRTUALENV=$HOME/.local/bin/virtualenv
+
+		# Load virtualenvwrapper
+		source $HOME/.local/bin/virtualenvwrapper.sh
+	```
+	
+	# Reload the shell window using (you can also close it and open it again)
+	source ~/.bashrc
+	
+	# Check the correct functionality of the virtualenv and virtualenvwrapper
+	# by creating a new test environment and then deleting it
+	
+	mkvirtualenv test-env       # create new environment
+	workon test-env             # activate itx
+	deactivate                  # leave it
+	rmvirtualenv test-env       # delete it
+
+
+### 3 - Create virtual environment and install pytorch ###
+
+	# Create the virtual environment in WSL by running
+	```
+		mkvirtualenv <ENV_NAME>
+	```
+	
+	# Active the environment
+	# Should appear in the left like this:
+	# (<ENV_NAME>) rouge@Rouge:~/
+	```
+		workon <ENV_NAME>
+	```
+	
+	# Download and install pytorch in the environment
+	# Go to: https://pytorch.org/get-started/locally/ to dowload with the following settings
+	```
+		Pytorch build: Stable
+		OS: Windows (becuase you are working with WSL)
+		Package: pip
+		Language: Python
+		Compute platform: (Select the CUDA version you have installed)
+	```
+	# Run the command it says
+	
+	
+	# Check Pytorch is working and it is using the GPU
+	```
+		python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
+	```
+	
+	
+### 4 - SAM2 or SAM3 ###
+
+	# To dowload the model SAM2 in pip first clone the github and enter 
+	```
+		git clone https://github.com/facebookresearch/sam2.git && cd sam2
+	```
+	
+	# Or dowload the model SAM3 in pip first clone the github and enter 
+	```
+		git clone https://github.com/facebookresearch/sam3.git && cd sam3
+	```
+	
+	# Once in the samX directory run
+	```
+		pip install -e .
+	```
+	
+# Congratulations you have now a working python environment managed by
+# virtualenvwrapper that contains Pytorch and SAM2 & 3
+
+### 5 - Model checkpoints ###
+# SAM2 Model checkpoints are in the SAM2 github
+# SAM3 Model checkpoints have to be asked and downloaded from Huggingface

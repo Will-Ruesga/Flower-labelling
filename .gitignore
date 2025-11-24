@@ -1,0 +1,16 @@
+# Ignore full sam folders
+sam2/
+sam3/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Data
+*.tiff
+*.png
+*.jpg
+correct_masks/
+incorrect_masks/
+mask_results.csv
