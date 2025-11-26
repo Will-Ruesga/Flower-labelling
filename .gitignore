@@ -1,5 +1,6 @@
 # Ignore full sam folders
 sam2/
+sam2_mod/
 sam3/
 
 # Python cache
