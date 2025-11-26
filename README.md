@@ -1,8 +1,8 @@
 # Labelling Pipeline
 
-This repository contains a bash script and modified files to run the **SAM2** and **SAM3** pipelines for image segmentation with custom edits.  
+This repository contains a bash script and modified files to run the **SAM3** pipeline for image segmentation with custom edits.  
 
-> **Note:** This repository does **not include the full SAM2 or SAM3 packages**. You need to download and install them separately.
+> **Note:** This repository does **not include the full SAM3 package**. You need to download and install it separately.
 
 ---
 
@@ -10,21 +10,17 @@ This repository contains a bash script and modified files to run the **SAM2** an
 
 ```
 labelling-repo/
-├─ labelling.sh                  # Bash script to run SAM2 and SAM3
-├─ sam2_mod/                     # Modified SAM2 files
-|  └─ run_sam2.py
-|  └─ run_utils.py
 ├─ sam3_mod/                     # Modified SAM3 files
 │  └─ visualization_utils.py     # Edited plot_results function
-|  └─ run_sam3.py
-|  └─ run_utils.py
+|  └─ image_predictor.py
+|  └─ image_predictor_utils.py
+|  └─ ui.py
 ├─ README.md
 ├─ .gitignore
 ```
-
-- `labelling.sh`: Runs both SAM3 and SAM2 scripts on a dataset folder.  
-- `sam3_mod/visualization_utils.py`: Contains modifications to the `plot_results` & `plot_mask` functions.  
-- Original `sam2` and `sam3` directories are **not included**. They must be downloaded separately.
+- `sam3_mod`: Directory that contains all the additional files to add to the `sam3` that will be created when downloading SAM3.
+- `sam3_mod/image_predictor.py`: Runs SAM3 on a dataset folder with a specified prompt.
+- Original `sam3` directory is **not included**. They must be downloaded separately.
 
 ---
 
@@ -32,42 +28,27 @@ labelling-repo/
 
 - **Python 3.12**
 - **Virtualenvwrapper** for environment management  
-- Installed SAM2 and SAM3 packages in separate directories (each with their own requirements)
+- Installed SAM3 package inside this directory (with its own requirements)
+- Install this package requirements
 
 ---
 
 ## Setup
 
 1. Follow the instructions to the of the file `samX-pipsetup-wsl.txt` wehre it explains
-how to set up in WSL2 the two environments the virtualwrapper and how to donwload SAM2 and SAM3
+how to set up in WSL2 the two environments the virtualwrapper and how to donwload SAM3
 
 2. Copy your modified files from `sam3_mod` into the SAM3 package folder:
-
-```bash
-cp sam2_mod/run_utils.py sam2/
-cp sam2_mod/run_sam2.py sam2/
-
-cp sam3_mod/visualization_utils.py sam3/sam3/visualization_utils.py
-cp sam3_mod/run_utils.py sam3/
-cp sam3_mod/run_sam3.py sam3/
-
-```
 
 ---
 
 ## Usage
 
-Run the pipeline with the bash script:
+Run the script image_predictor
 
 ```bash
-bash labelling.sh <DATA_PATH> [PROMPT]
+python image_predictor.py -d <DATA_PATH> -p <PROMPT>
 ```
 
 - `<DATA_PATH>` → Path to the folder containing images (mandatory)  
-- `[PROMPT]` → Optional text prompt for SAM3  
-
-Example:
-
-```bash
-bash labelling.sh /mnt/d/Hydrangea2/ "flowers"
-```
+- `<PROMPT>` →  Prompt text for SAM3
