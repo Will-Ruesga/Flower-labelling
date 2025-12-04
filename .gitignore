@@ -17,5 +17,6 @@ incorrect_masks/
 mask_results.csv
 
 
-# The 2 SAM script
-labelling.sh
+# The other UIs that are not ready
+sam3_mod/applications/bbox_prompt_ui.py
+sam3_mod/applications/prompt_ui.py
