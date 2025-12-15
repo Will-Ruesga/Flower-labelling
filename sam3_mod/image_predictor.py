@@ -1,9 +1,8 @@
-import os
 import sam3
 
 from pathlib import Path
 
-from img_pred_utils import load_model, data_path_to_img_paths#, setup_workspace
+from img_pred_utils import load_model, data_path_to_img_paths
 from applications.task_ui import TaskSelectionUI
 from applications.automatic_ui import AutomaticUI
 from applications.prompt_ui import PromptUI
@@ -11,9 +10,8 @@ from applications.prompt_ui import PromptUI
 # Defines
 NONE_B = "-- Select one"
 AUTO_B = "Automatic labelling"
-PROMPT_B = "Prompt only labelling"
-BOX_PROMPT_B = "Bounding box and prompt labelling"
-BEHAVIORS = (NONE_B, [AUTO_B, PROMPT_B, BOX_PROMPT_B])
+PROMPT_B = "Prompt labelling"
+BEHAVIORS = (NONE_B, [AUTO_B, PROMPT_B])
 
 # Call Base UI to select the task
 taskSelection = TaskSelectionUI(BEHAVIORS)
@@ -37,13 +35,8 @@ header = ["image_abspath", "csv_abspath", "csv_rel_img_path", "status", "mask_bb
 
 # Call the appropiate UI depending on the task
 if task == BEHAVIORS[1][0]:
-    print(f"Selected: {task}")
     AutomaticUI(processor, imgs_paths, header)
-# elif task == BEHAVIORS[1][1]:
-#     print(f"Selected: {task}")
-#     PromptUI(processor, imgs_paths, header)
-
-# elif task == BEHAVIORS[1][2]:
-#     print(f"Selected: {task}")
-# else:
-#     exit()
+elif task == BEHAVIORS[1][1]:
+    PromptUI(processor, imgs_paths, header)
+else:
+    exit()
