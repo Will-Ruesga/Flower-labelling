@@ -10,35 +10,24 @@ This repository contains a bash script and modified files to run the **SAM3** pi
 
 ```
 labelling-repo/
-├─ sam3_mod/                    # -- Modified SAM3 files -- #
-│  └─ applications
-│       └─ task_ui.py           # Task selection UI tool
-│       └─ automatic_ui.py      # Automatic labelling UI tool
-|  └─ image_predictor.py        # Main script to predict images
-|  └─ img_pred_utils.py         # Utility functions
+├─ sam3/                    # -- SAM3 repository [Not included] -- #
+├─ applications
+│   └─ task_ui.py           # Task selection UI tool
+│   └─ automatic_ui.py      # Automatic labelling UI tool
+│   └─ prompt_ui.py         # Prompt labelling UI tool
+├─ image_predictor.py       # Main script to predict images
+├─ img_pred_utils.py        # Utility functions
 ├─ README.md
-├─ .gitignore
 ```
-- `sam3_mod`: Directory that contains all the additional files to add to the `sam3` that will be created when downloading SAM3.
-- `sam3_mod/image_predictor.py`: Runs the GUIs to execute any type of labelling task
-- Original `sam3` directory is **not included**. They must be downloaded separately.
-
----
-
-## Requirements
-
-- **Python 3.12**
-- **Virtualenvwrapper** for environment management  
-- Install this package requirements
 
 ---
 
 ## Setup
 
-1. Follow the instructions to the of the file `samX-pipsetup-wsl.txt` wehre it explains
-how to set up in WSL2 the two environments the virtualwrapper and how to donwload SAM3
+1. Follow the instructions to the of the file `wsl_sam3_setup.txt` wehre it explains
+how to set up WSL and SAM3.
 
-2. Copy your modified files from `sam3_mod` into the SAM3 package folder. **Not the sam3_mod folder!**
+2. Install the requirements in `requiremtns.txt`.
 
 ---
 
@@ -50,4 +39,4 @@ Run the script image_predictor
 python image_predictor.py
 ```
 
-A prompt will appear, follow the instructions to label
+A prompt will appear, follow the instructions to label the images

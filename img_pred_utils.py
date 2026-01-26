@@ -158,27 +158,20 @@ def masks_to_polygon_string(masks):
 
         # Find contours
         contours, _ = cv2.findContours(mask_np.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE) # pyright: ignore[reportAttributeAccessIssue]
-
-        # Store each contour object as a polygon
+        
+        # Store each contour object and formated as {X:[...], Y:[...]}
         polys = []
         for cnt in contours:
             pts = cnt.reshape(-1, 2)
             xs = (pts[:, 0].astype(float)).tolist()
             ys = (pts[:, 1].astype(float)).tolist()
-            polys.append({"X": xs, "Y": ys})
+            polys.append(f"{{X:[{xs}],Y:[{ys}]}}")
 
-        # Format each polygon as {X:[...], Y:[...]}
-        inner = []
-        for poly in polys:
-            xs = ",".join(f"{float(x):.1f}" for x in poly["X"])
-            ys = ",".join(f"{float(y):.1f}" for y in poly["Y"])
-            inner.append(f"{{X:[{xs}],Y:[{ys}]}}")
-        
         # Append all contours within the region
-        region.append(f"[{",".join(inner)}]")
+        region.append(f"[{','.join(polys)}]")
 
     # Join all different regions (masks)
-    return f"[{",".join(region)}]"
+    return f"[{','.join(region)}]"
 
 
 ########################################

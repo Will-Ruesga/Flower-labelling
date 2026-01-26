@@ -1,6 +1,4 @@
 # Ignore full sam folders
-sam2/
-sam2_mod/
 sam3/
 
 # Python cache
@@ -10,13 +8,13 @@ __pycache__/
 
 # Data
 *.tiff
+*.tif
 *.png
 *.jpg
 correct_masks/
 incorrect_masks/
 mask_results.csv
+checkpoints/
 
-
-# The other UIs that are not ready
-sam3_mod/applications/bbox_prompt_ui.py
-sam3_mod/applications/prompt_ui.py
+# Tests
+text_polygon.py

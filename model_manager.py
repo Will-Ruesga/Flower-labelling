@@ -237,8 +237,8 @@ class ModelManager:
         # Build output dict for ONE row
         out_dict = {key: [] for key in header if key not in {"csv_abspath", "csv_rel_img_path"}}
         out_dict["image_abspath"].append(img_path)
-        out_dict["mask_rle"].append("[" + ",".join(mask_rle) + "]")
-        out_dict["mask_bbox"].append("[" + ",".join(mask_bbox) + "]")
+        out_dict["mask_rle"].append("[" + mask_rle + "]")
+        out_dict["mask_bbox"].append("[" + mask_bbox + "]")
         out_dict["status"].append(status)
 
         # Save row
