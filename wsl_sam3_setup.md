@@ -2,9 +2,10 @@
 
 ### 1 - Install WSL2
 
-Open Windows PowerShell and run the following commands
+To isntall wsl2 open Windows PowerShell and run the following commands
+and follow the installation instructions
 ```
-	wsl --install Follow the installation instructions
+	wsl --install 
 ```
 
 Check if it worked by using
@@ -12,7 +13,7 @@ Check if it worked by using
 	wsl --version
 ```
 
-Should show something similar to this
+If it outputs something similar to this it is correct and WSL2 hs been correctly installed.
 ```
 	WSL version: 2.6.1.0
 	Kernel version: 6.6.87.2-1
@@ -28,58 +29,59 @@ Should show something similar to this
 
 Open Windows Terminal app and select a new Ubuntu window
 (If desired Ubuntu can be set up as the default in the Terminal app)
-Run the following commands
+Run the following commands to install the essentials
 
-	Install essentials
-	```
-		sudo apt update && sudo apt upgrade -y
-		sudo apt install python3-pip python3-venv python3-full -y
-	```
+```
+	sudo apt update && sudo apt upgrade -y
+	sudo apt install python3-pip python3-venv python3-full -y
+```
 
+---
 
 ### 3 - Create virtual environment and install pytorch
 
-	Create the virtual environment in WSL by running
-	```
-		python3 -m venv <ENV_NAME>
-	```
-	
-	Active the environment
-	```
-		source <ENV_NAME>/bin/activate
-	```
-	Should appear in the left like this:
-	(<ENV_NAME>) rouge@Rouge:~/
-	
-	Download and install pytorch in the environment
-	Go to: https://pytorch.org/get-started/locally/ to dowload with the following settings
-	```
-		Pytorch build: Stable
-		OS: Windows (becuase you are working with WSL)
-		Package: pip
-		Language: Python
-		Compute platform: (Select the CUDA version you have installed)
-	```
-	Run the command it says
-	
-	
-	Check Pytorch is working and it is using the GPU
-	```
-		python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
-	```
-	
+Create the virtual environment in WSL by running
+
+```
+	python3 -m venv <ENV_NAME>
+```
+
+Active the environment
+
+```
+	source <ENV_NAME>/bin/activate
+```
+
+Should appear in the left like this:
+(<ENV_NAME>) user@User:~/
+
+Download and install pytorch in the environment
+Go to: https://pytorch.org/get-started/locally/ to dowload with the following settings and run the command it says
+
++ **Pytorch build**: Stable
++ **OS**: Windows (becuase you are working with WSL)
++ **Package**: pip
++ **Language**: Python
++ **Compute platform**: (Select the CUDA version you have installed)
+
+Check Pytorch is working and it is using the GPU
+```
+	python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
+```
+---
 	
 ### 4 - SAM3
 
-	Dowload the model SAM3 in pip first clone the github and enter 
-	```
-		git clone https://github.com/facebookresearch/sam3.git && cd sam3
-	```
-	
-	Once in the SAM3 directory run
-	```
-		pip install -e .
-	```
+Dowload the model SAM3 in pip first clone the github and enter 
+```
+	git clone https://github.com/facebookresearch/sam3.git && cd sam3
+```
+
+Once in the SAM3 directory run
+```
+	pip install -e .
+```
+---
 
 ### 5 - Model checkpoints
 SAM3 Model checkpoints have to be asked and downloaded from Huggingface
