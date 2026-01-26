@@ -19,9 +19,9 @@ from sam3.sam3.model.sam3_image_processor import Sam3Processor
 # ------------------------------------------------------------------------------------------------ #
 #                                      DATA UTILITY FUNCTIONS                                      #
 # ------------------------------------------------------------------------------------------------ #
-########################################
-#              Load Model              #
-########################################
+# ---------------------------------------------------------
+# Load Model
+# ---------------------------------------------------------
 def load_model(bpe_path: Path | None):
     """
     Load the SAM3 image model and its processor.
@@ -42,9 +42,9 @@ def load_model(bpe_path: Path | None):
     return Sam3Processor(model)
 
 
-########################################
-#               Load Data              #
-########################################
+# ---------------------------------------------------------
+# Load Data
+# ---------------------------------------------------------
 def data_path_to_img_paths(data_path: Path, data_type: str | None):
     """
     Given the location of the data (by csv or folder), gets each image absolute path
@@ -89,9 +89,9 @@ def data_path_to_img_paths(data_path: Path, data_type: str | None):
     return imgs_paths, "png"
 
 
-########################################
-#     Create/Update & Save the CSV     #
-########################################
+# ---------------------------------------------------------
+# Create/Update & Save the CSV
+# ---------------------------------------------------------
 def _save_to_csv(image_path: Path, out_dict: dict, header: list[str]):
     """
     Create or update CSV file and save it
@@ -140,9 +140,9 @@ def _save_to_csv(image_path: Path, out_dict: dict, header: list[str]):
     df_final.to_csv(csv_path, index=False, sep=";")
 
 
-########################################
-#   Transform Masks to Polygon String  #
-########################################
+# ---------------------------------------------------------
+# Transform Masks to Polygon String
+# ---------------------------------------------------------
 def masks_to_polygon_string(masks):
     """
     Convert a list/array/tensor of binary masks [N,H,W]
@@ -174,9 +174,9 @@ def masks_to_polygon_string(masks):
     return f"[{','.join(region)}]"
 
 
-########################################
-#  Transform BBoxes to Single Big Box  #
-########################################
+# ---------------------------------------------------------
+# Transform BBoxes to Single Big Box
+# ---------------------------------------------------------
 def find_bigbbox(boxes):
     """
     Given a list of bounding boxes gets a bounding box encompassing all of them
@@ -208,9 +208,9 @@ def find_bigbbox(boxes):
 # ------------------------------------------------------------------------------------------------ #
 #                                    PLOTTING UTILITY FUNCTIONS                                    #
 # ------------------------------------------------------------------------------------------------ #
-########################################
-#           Color Generation           #
-########################################
+# ---------------------------------------------------------
+# Color Generation
+# ---------------------------------------------------------
 def _generate_colors(n_colors=128, n_samples=5000):
     """
     Generates a perceptually uniform palette of RGB colors.
@@ -231,7 +231,7 @@ def _generate_colors(n_colors=128, n_samples=5000):
 COLORS = _generate_colors()
 
 
-########################################
+# ---------------------------------------------------------
 def _plot_mask(mask, color="r", ax=None):
     """
     Draws a semi-transparent mask overlay on the given axis
@@ -247,7 +247,7 @@ def _plot_mask(mask, color="r", ax=None):
     ax.imshow(mask_img)
 
 
-########################################
+# ---------------------------------------------------------
 def _plot_bbox(img_height, img_width, box, box_format="XYXY",
               relative_coords=True, color="r", linestyle="solid",
               text=None, ax=None):
@@ -290,7 +290,7 @@ def _plot_bbox(img_height, img_width, box, box_format="XYXY",
             bbox={"facecolor": "w", "alpha": 0.75, "pad": 2}
         )
 
-########################################
+# ---------------------------------------------------------
 def plot_results(img, results):
     """
     Creates a matplotlib figure with masks and bounding boxes overlaid.

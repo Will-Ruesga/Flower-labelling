@@ -21,4 +21,3 @@ mask_results.csv
 checkpoints/
 
 # Tests
-text_polygon.py

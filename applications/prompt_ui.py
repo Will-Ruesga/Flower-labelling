@@ -1,6 +1,7 @@
 import tkinter as tk
 
 from tkinter import ttk
+from pathlib import Path
 from PIL import Image, ImageTk
 
 from model_manager import ModelManager
@@ -14,7 +15,7 @@ BTN_HEIGHT = 1
 #            Prompt Class UI           #
 ########################################
 class PromptUI:
-    def __init__(self, processor, imgs_paths: list, header: list[str]):
+    def __init__(self, processor, imgs_paths: list, pages_to_label: list[int], header: list[str]):
         """
         :param processor: The model processor
         :param imgs_paths: List of absolute paths of all the iamges
@@ -30,8 +31,13 @@ class PromptUI:
 
         # Data
         self.imgs_paths = imgs_paths
-        self.current_img_index = 0
+        self.selected_pages = sorted(set(pages_to_label))
         self.header = header
+
+        self.current_img_index = 0
+        self.current_page_index = 0
+        self.num_pages = 1
+        self.current_pil_image = None
         
         # States
         self.generation_mode = None # "single" or "multiple"
@@ -114,33 +120,26 @@ class PromptUI:
         self.img_canvas.bind("<ButtonRelease-1>", self._on_bbox_end)
 
     
-    def _show_image(self, index: int):
+    def _show_image(self, image_index: int, page_index: int = 0):
         """
         Loads and displays the image at the given index without overlay.
 
         :param index: Index of the image in self.imgs_paths
         """
-        img_path = self.imgs_paths[index]
-        image = Image.open(img_path)
+        img_path = self.imgs_paths[image_index]
 
-        # Save original size for bbox scaling
-        self.orig_w, self.orig_h = image.size
+        # Open image & Get pages
+        self.current_pil_image = Image.open(img_path)
+        self.num_pages = getattr(self.current_pil_image, "n_frames", 1)
 
-        # Show image in canvas (resized for UI)
-        self.img_canvas.delete("all")
-        image.thumbnail((900, 900))
-        self.disp_w, self.disp_h = image.size
+        # Filter selected pages for this image
+        self.valid_pages_for_image = [p for p in self.selected_pages if p < self.num_pages]
+        self.current_selected_page_idx = 0
 
-        self.tk_img = ImageTk.PhotoImage(image)
-
-        # IMPORTANT: store the canvas image item id
-        self.canvas_img_id = self.img_canvas.create_image(0, 0, anchor="nw", image=self.tk_img)
-        self._img_ref = self.tk_img
-
-        # Reset bbox per image
-        self.bbox = None
-        self.bbox_start = None
-        self.img_canvas.delete("bbox")
+        # No valid pages → skip image
+        if not self.valid_pages_for_image:
+            self._advance_to_next_image()
+            return
 
 
     ########################################
@@ -159,9 +158,13 @@ class PromptUI:
         promt_text_label = tk.Label(prompt_frame, text="Enter model prompt:", font=("Arial", 12))
         promt_text_label.grid(row=0, column=0, padx=10, pady=(0, 5), sticky="nw")
 
+        # Page info label
+        self.page_info_label = tk.Label(prompt_frame, text="", font=("Arial", 11, "italic"), fg="gray")
+        self.page_info_label.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="nw")
+
         # Text box 
         self.prompt_text = tk.Text(prompt_frame, height=5,font=("Arial", 14),wrap="word",)
-        self.prompt_text.grid(row=1, column=0, padx=10, sticky="ew")
+        self.prompt_text.grid(row=2, column=0, padx=10, sticky="ew")
 
 
     ########################################
@@ -348,12 +351,10 @@ class PromptUI:
             self._update_error("Select an output type! -> ('Single Mask' or 'Multiple Masks')")
             return
 
-        # TODO: Instead of image work with generate masks
         # --- Run model on current image --- #
-        img_path = self.imgs_paths[self.current_img_index]
-        image = Image.open(img_path)
+        image = self.current_pil_image.copy()
 
-        self.model_output = self.model_manaclearger.run_model(image, self.prompt, self.generation_mode, bbox=self.bbox)
+        self.model_output = self.model_manager.run_model(image, self.prompt, self.generation_mode, bbox=self.bbox)
 
         # Render & Display mask overlay instead of the raw image
         overlay_img = self.model_manager.render_image_with_mask(image, self.model_output)
@@ -392,12 +393,20 @@ class PromptUI:
             header=self.header
         )
 
+        # Move to next selected page if available
+        if self.current_selected_page_idx < len(self.valid_pages_for_image) - 1:
+            self.current_selected_page_idx += 1
+            self.model_output = None
+            self._show_current_selected_page()
+            self._update_error("")
+            return
+        
         # --- Pass to next image --- #
         # If this is the last image, close the window
         if self.current_img_index >= len(self.imgs_paths) - 1:
             self.root.destroy()
             return
-        
+         
         self.current_img_index += 1
         self.model_output = None                    # Reset status
         self._show_image(self.current_img_index)    # Show next image
@@ -523,7 +532,43 @@ class PromptUI:
         self.bbox = (ox0, oy0, ox1, oy1)
         self.bbox_start = None
 
+    def _update_page_label(self):
+        img_name = Path(self.imgs_paths[self.current_img_index]).name
+        shown_idx = self.current_selected_page_idx + 1
+        total = len(self.valid_pages_for_image)
+        page = self.current_page_index
 
+        self.page_info_label.config(
+            text=f"Displaying selected page {shown_idx} of {total} "
+                f"(page {page}) in image {img_name}")
+
+    def _show_current_selected_page(self):
+        # Open the page
+        page = self.valid_pages_for_image[self.current_selected_page_idx]
+        self.current_page_index = page
+
+        # Save original size for bbox scaling
+        self.current_pil_image.seek(page)
+        image = self.current_pil_image.copy()
+        self.orig_w, self.orig_h = image.size
+
+        # Show image in canvas (resized for UI)
+        self.img_canvas.delete("all")
+        image.thumbnail((900, 900))
+        self.disp_w, self.disp_h = image.size
+        self.tk_img = ImageTk.PhotoImage(image)
+
+        # Store the canvas image item id
+        self.canvas_img_id = self.img_canvas.create_image(0, 0, anchor="nw", image=self.tk_img)
+        self._img_ref = self.tk_img
+
+        # Reset bbox per image
+        self.bbox = None
+        self.bbox_start = None
+        self.img_canvas.delete("bbox")
+
+        # Update page label
+        self._update_page_label()
 
         
 ########################################

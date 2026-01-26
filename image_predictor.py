@@ -1,11 +1,12 @@
 import sam3
 
 from pathlib import Path
+from importlib.resources import files
 
 from img_pred_utils import load_model, data_path_to_img_paths
 from applications.task_ui import TaskSelectionUI
-from applications.automatic_ui import AutomaticUI
 from applications.prompt_ui import PromptUI
+from applications.automatic_ui import AutomaticUI
 
 # Defines
 NONE_B = "-- Select one"
@@ -25,7 +26,7 @@ data_path = Path(data_abspath)
 imgs_paths, mask_format = data_path_to_img_paths(data_path, data_type)
 
 # Load model
-sam3_root = Path(sam3.__file__).resolve().parent.parent
+sam3_root = files("sam3")
 bpe_path = sam3_root / "assets" / "bpe_simple_vocab_16e6.txt.gz"
 processor = load_model(bpe_path)
 
