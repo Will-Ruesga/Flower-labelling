@@ -11,8 +11,8 @@ from PIL import Image
 from pathlib import Path
 from skimage.color import rgb2lab, lab2rgb
 
-from sam3.model_builder import build_sam3_image_model
-from sam3.model.sam3_image_processor import Sam3Processor
+from sam3.sam3.model_builder import build_sam3_image_model
+from sam3.sam3.model.sam3_image_processor import Sam3Processor
 
 
 

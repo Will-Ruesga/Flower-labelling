@@ -1,6 +1,10 @@
 # Ignore full sam folders
 sam3/
 
+# Environment
+.labelling/
+.env
+
 # Python cache
 __pycache__/
 *.pyc

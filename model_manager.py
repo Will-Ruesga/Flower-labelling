@@ -4,7 +4,7 @@ from PIL import Image
 from pathlib import Path
 from typing import List, Dict, Any
 
-from img_pred_utils import (masks_to_polygon_string, find_bigbbox, _save_to_csv, plot_results)
+from img_pred_utils import masks_to_polygon_string, find_bigbbox, _save_to_csv, plot_results
 
 
 class ModelManager:

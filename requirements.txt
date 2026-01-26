@@ -130,7 +130,6 @@ rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
 rpds-py==0.29.0
 safetensors==0.7.0
--e git+https://github.com/Will-Ruesga/Flower-labelling.git@13e1690274894dbc28c7f93c89be51556cc42f2b#egg=sam3&subdirectory=sam3
 scikit-image==0.25.2
 scikit-learn==1.7.2
 scipy==1.16.3
