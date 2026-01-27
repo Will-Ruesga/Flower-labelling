@@ -15,11 +15,11 @@ BTN_HEIGHT = 1
 #            Prompt Class UI           #
 ########################################
 class PromptUI:
-    def __init__(self, processor, imgs_paths: list, pages_to_label: list[int], header: list[str]):
+    def __init__(self, processor, imgs_paths: list, header: list[str], pages_to_label: list[int] = [0]):
         """
         :param processor: The model processor
         :param imgs_paths: List of absolute paths of all the iamges
-        :param data_type: String with the type of the data -> ("csv", "png")
+        :param pages_to_label: List of ints with the pages to label set at [0] if no pages
         :param header: List of strings with the header columns of the csv
         """
         # --- Initlize --- #
@@ -34,8 +34,12 @@ class PromptUI:
         self.selected_pages = sorted(set(pages_to_label))
         self.header = header
 
+        
         self.current_img_index = 0
         self.current_page_index = 0
+        self.current_selected_page_idx = 0
+        self.valid_pages_for_image = []
+
         self.num_pages = 1
         self.current_pil_image = None
         
@@ -97,6 +101,9 @@ class PromptUI:
         self._mask_input_buttons()
         self._mask_generate_buttons()
         self._decision_buttons()
+        
+        # Show first valid image/page
+        self._show_image(self.current_img_index)
 
         # Start the loop
         self.root.mainloop()
@@ -120,26 +127,36 @@ class PromptUI:
         self.img_canvas.bind("<ButtonRelease-1>", self._on_bbox_end)
 
     
-    def _show_image(self, image_index: int, page_index: int = 0):
+    def _show_image(self, image_index: int):
         """
         Loads and displays the image at the given index without overlay.
 
         :param index: Index of the image in self.imgs_paths
         """
-        img_path = self.imgs_paths[image_index]
+        # Check out of bounds (las image)
+        if image_index >= len(self.imgs_paths):
+            self.root.destroy()
+            return
 
-        # Open image & Get pages
+        img_path = self.imgs_paths[image_index]
         self.current_pil_image = Image.open(img_path)
+
         self.num_pages = getattr(self.current_pil_image, "n_frames", 1)
 
-        # Filter selected pages for this image
-        self.valid_pages_for_image = [p for p in self.selected_pages if p < self.num_pages]
-        self.current_selected_page_idx = 0
+        # Filter selected pages that exist in this image
+        self.valid_pages_for_image = [
+            p for p in self.selected_pages if p < self.num_pages
+        ]
 
-        # No valid pages → skip image
+        # If no valid pages -> skip image
         if not self.valid_pages_for_image:
-            self._advance_to_next_image()
+            self.current_img_index += 1
+            self._show_image(self.current_img_index)
             return
+
+        # Reset page index and show first page
+        self.current_selected_page_idx = 0
+        self._show_current_selected_page()
 
 
     ########################################
@@ -352,6 +369,7 @@ class PromptUI:
             return
 
         # --- Run model on current image --- #
+        assert self.current_pil_image is not None
         image = self.current_pil_image.copy()
 
         self.model_output = self.model_manager.run_model(image, self.prompt, self.generation_mode, bbox=self.bbox)
@@ -543,11 +561,15 @@ class PromptUI:
                 f"(page {page}) in image {img_name}")
 
     def _show_current_selected_page(self):
+        """
+        Displays the currently selected page of the current image.
+        """
         # Open the page
         page = self.valid_pages_for_image[self.current_selected_page_idx]
         self.current_page_index = page
 
-        # Save original size for bbox scaling
+        # Save image and original size for bbox scaling
+        assert self.current_pil_image is not None
         self.current_pil_image.seek(page)
         image = self.current_pil_image.copy()
         self.orig_w, self.orig_h = image.size

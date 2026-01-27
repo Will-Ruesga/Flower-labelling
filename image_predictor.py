@@ -1,7 +1,5 @@
-import sam3
-
 from pathlib import Path
-from importlib.resources import files
+from importlib.resources import files, as_file
 
 from img_pred_utils import load_model, data_path_to_img_paths
 from applications.task_ui import TaskSelectionUI
@@ -25,9 +23,17 @@ del taskSelection
 data_path = Path(data_abspath)
 imgs_paths, mask_format = data_path_to_img_paths(data_path, data_type)
 
+if data_type != ".csv":
+    pages_to_label = [0, 1]
+else:
+    pages_to_label = [0]
+
 # Load model
 sam3_root = files("sam3")
-bpe_path = sam3_root / "assets" / "bpe_simple_vocab_16e6.txt.gz"
+bpe_resource = sam3_root / "assets" / "bpe_simple_vocab_16e6.txt.gz"
+with as_file(bpe_resource) as bpe_path:
+    assert isinstance(bpe_path, Path)
+    processor = load_model(bpe_path)
 processor = load_model(bpe_path)
 
 # Set up workspace
@@ -38,6 +44,6 @@ header = ["image_abspath", "csv_abspath", "csv_rel_img_path", "status", "mask_bb
 if task == BEHAVIORS[1][0]:
     AutomaticUI(processor, imgs_paths, header)
 elif task == BEHAVIORS[1][1]:
-    PromptUI(processor, imgs_paths, header)
+    PromptUI(processor, imgs_paths, header, pages_to_label)
 else:
     exit()
