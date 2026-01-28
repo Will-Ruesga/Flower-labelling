@@ -22,4 +22,5 @@ mask_results.csv
 checkpoints/
 
 # Tests
+applications/prompt_/
 text_polygon.py

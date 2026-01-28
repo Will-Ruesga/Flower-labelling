@@ -90,6 +90,24 @@ def data_path_to_img_paths(data_path: Path, data_type: str | None):
 
 
 # ---------------------------------------------------------
+# Filter existing pages
+# ---------------------------------------------------------
+def filter_existing_pages(pages_to_label: list[int], num_pages: int):
+    """
+    Filters page indexes, returning only those that exist
+
+    :param pages_to_label: List of integer page indexes to check
+    :param num_pages: Number of frames of the image
+
+    :return: List of page indexes that exist in the image
+    """
+    return [
+        page for page in pages_to_label
+        if isinstance(page, int) and 0 <= page < num_pages
+    ]
+
+
+# ---------------------------------------------------------
 # Create/Update & Save the CSV
 # ---------------------------------------------------------
 def _save_to_csv(image_path: Path, out_dict: dict, header: list[str]):
@@ -148,30 +166,57 @@ def masks_to_polygon_string(masks):
     Convert a list/array/tensor of binary masks [N,H,W]
     into a nested polygon string: [[{X:[..],Y:[..]}],[{..}]]
 
-    :param masks: Ouput masks of the model
+    :param masks: Output masks of the model
     """
-    # Loop for each region (mask)
-    region = []
+    # Loop for each page / region
+    regions = []
     for i in range(len(masks)):
-        mask_np = torch.squeeze(masks[0]).detach().cpu().numpy()
+        # Convert mask to numpy
+        mask_np = torch.squeeze(masks[i]).detach().cpu().numpy()
         mask_np = (mask_np > 0).astype(np.uint8)
 
         # Find contours
         contours, _ = cv2.findContours(mask_np.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE) # pyright: ignore[reportAttributeAccessIssue]
-        
-        # Store each contour object and formated as {X:[...], Y:[...]}
+
+        # Store each contour formatted as {X:[...], Y:[...]}
         polys = []
         for cnt in contours:
             pts = cnt.reshape(-1, 2)
-            xs = (pts[:, 0].astype(float)).tolist()
-            ys = (pts[:, 1].astype(float)).tolist()
-            polys.append(f"{{X:[{xs}],Y:[{ys}]}}")
+            xs = pts[:, 0].astype(float).tolist()
+            ys = pts[:, 1].astype(float).tolist()
 
-        # Append all contours within the region
-        region.append(f"[{','.join(polys)}]")
+            polys.append(f"{{X:{xs},Y:{ys}}}")
 
-    # Join all different regions (masks)
-    return f"[{','.join(region)}]"
+        # Append polygons for this page
+        regions.append(f"[{','.join(polys)}]")
+
+    # Join all pages (TIFF-level)
+    return f"[{','.join(regions)}]"
+
+
+def _fmt(v: float) -> str:
+    """
+    Compact float formatting for memory efficiency
+    """
+    print(v)
+    if v.is_integer():
+        return str(int(v))
+    s = f"{v:.6f}".rstrip("0").rstrip(".")
+    ret = s[1:] if s.startswith("0.") else s
+    print(ret)
+    return ret
+
+# ---------------------------------------------------------
+# Transfor Polygon String Pages into Full tiff string
+# ---------------------------------------------------------
+def polygos_pages_to_tiff(page_polygons: dict[int, str]) -> str:
+    """
+    Join per-page polygon strings into a TIFF-level polygon string
+
+    :param page_polygons: {page_index: "[{X:..,Y:..}]"}
+    """
+    pages = [page_polygons[k] for k in sorted(page_polygons)]
+    return f"[{','.join(pages)}]"
 
 
 # ---------------------------------------------------------
