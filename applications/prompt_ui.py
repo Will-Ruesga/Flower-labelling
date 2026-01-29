@@ -1,8 +1,10 @@
 import tkinter as tk
 
+from PIL import Image, ImageTk
 from tkinter import ttk
 from pathlib import Path
-from PIL import Image, ImageTk
+from typing import Dict, Optional, Any
+
 from model_manager import ModelManager
 
 
@@ -24,25 +26,25 @@ class PromptUI:
         # -------------------------------------------------
         # Navigation
         self.current_img_index = 0
-        self.current_page_index = None
+        self.current_page_index: int = 0
         
         # -------------------------------------------------
         # Image / page data
-        self.imgs_paths = imgs_paths            # Paths of all the imges
-        self.pages_to_label = pages_to_label    # Pages to label
-        self.valid_pages_to_label = None        # Valid pages to label
-        self.current_pil_page = None                  # PIL.Image of current page
-        self.page_outputs = {}                  # {page_idx: model_output}
+        self.imgs_paths = imgs_paths                        # Paths of all the imges
+        self.pages_to_label = pages_to_label                # Pages to label
+        self.valid_pages_to_label: list[int] = []           # Valid pages to label
+        self.current_image: Image.Image | None = None       # PIL Image container
+        self.page_outputs: Dict[int, Optional[Any]] = {}    # {page_idx: model_output}
 
         # -------------------------------------------------
         # Rendering
         self.canvas_img_id = None
         self.tk_img = None
 
-        self.orig_w = None
-        self.orig_h = None
-        self.disp_sx = None
-        self.disp_sy = None
+        self.orig_w: Optional[int] = None
+        self.orig_h: Optional[int] = None
+        self.disp_sx: Optional[float] = None
+        self.disp_sy: Optional[float] = None
 
         # -------------------------------------------------
         # Model
@@ -50,8 +52,7 @@ class PromptUI:
 
         # -------------------------------------------------
         # Interaction
-        self.prompt = ""                        # set dynamically but safer to initialize
-        self.generation_mode = None             # "single" | "multiple"
+        self.generation_mode = None # "single" | "multiple"
         self.bbox_enabled = False
         self.bbox = None
         self.bbox_start = None
@@ -61,6 +62,18 @@ class PromptUI:
         self.header = header
 
         # -------------------------------------------------
+        # UI widgets
+        self.img_canvas: Optional[tk.Canvas] = None
+        self.page_info_label: Optional[tk.Label] = None
+        self.error_label: Optional[tk.Label] = None
+        self.single_mask_tgl: Optional[tk.Button] = None
+        self.multiple_mask_tgl: Optional[tk.Button] = None
+        self.bbox_btn: Optional[tk.Button] = None
+
+        self.img_frame = None
+        self.prompt_text = None
+        self.progress = None
+
         # UI (root)
         self.root = tk.Tk()
         self.root.geometry("1200x1100")
@@ -133,40 +146,38 @@ class PromptUI:
         self.img_canvas.bind("<B1-Motion>", self._on_bbox_drag)
         self.img_canvas.bind("<ButtonRelease-1>", self._on_bbox_end)
 
-    
+    # ---------------------------------------------------------
     def _load_image(self, image_index: int):
         """
         Loads and displays the image at the given index without overlay.
 
         :param index: Index of the image in self.imgs_paths
         """
-        # Check out of bounds (las image)
+        # Check out of bounds (last image)
         if image_index >= len(self.imgs_paths):
             self.root.destroy()
             return
 
+        # Get path and set image container
         img_path = self.imgs_paths[image_index]
-        self.current_pil_page = Image.open(img_path)
+        self.current_image = Image.open(img_path)
 
-        num_pages = getattr(self.current_pil_page, "n_frames", 1)
-
-        # Filter selected pages that exist in this image
-        self.valid_pages_to_label = [
-            p for p in self.pages_to_label 
-            if (isinstance(p, int) and 0 <= p < num_pages)
-        ]
-
-        # Init the output dict
-        self.page_outputs = {p: None for p in self.valid_pages_to_label}
-
-        # If no valid pages -> skip image
-        if not self.valid_pages_to_label:
-            self.current_img_index += 1
-            self._load_image(self.current_img_index)
+        # Get valid pages if no valid pages -> skip image
+        valid_pages = self._prepare_image_pages(self.current_image)
+        if not valid_pages:
+            self._load_image(image_index + 1)
             return
+        
+        # Update class values
+        self.current_page_index = valid_pages[0]
+        self.valid_pages_to_label = valid_pages
+        self.current_img_index = image_index
 
-        # Reset page index and show first page
-        self.current_page_index = self.valid_pages_to_label[0]
+        # Init the output dict 
+        self._init_page_outputs(self.valid_pages_to_label)
+
+        
+        # Show page 0
         self._show_page()
 
 
@@ -213,25 +224,24 @@ class PromptUI:
         for c in range(2):
             gen_buttons_frame.grid_columnconfigure(c, weight=1)
 
-        # --- Generate Mask Button --- #
-        multiple_mask_tgl = tk.Button(
-            gen_buttons_frame, 
-            text="Generate", 
-            command=self._on_generate_mask, 
-            **self.common_kwargs
+        # --- Generate Buttons --- #
+        # Mask button
+        multiple_mask_tgl = self._make_button(
+            gen_buttons_frame,
+            text="Generate",
+            command=self._on_generate_mask,
+            highlight="black"
         )
         multiple_mask_tgl.grid(row=0, column=0, padx=5)
-        multiple_mask_tgl.config(highlightbackground="black", highlightthickness=2)
 
         # Label Rest button
-        label_rest_btn = tk.Button(
-            gen_buttons_frame, 
-            text="Label Rest", 
-            command=self._on_label_rest, 
-            **self.common_kwargs
+        label_rest_btn = self._make_button(
+            gen_buttons_frame,
+            text="Label Rest",
+            command=self._on_label_rest,
+            highlight="black"
         )
         label_rest_btn.grid(row=0, column=1, padx=15)
-        label_rest_btn.config(highlightbackground="black", highlightthickness=2)
 
     
     # ---------------------------------------------------------
@@ -253,20 +263,18 @@ class PromptUI:
 
         # --- Generate Page Navigation Buttons --- #
         # Previous Page Button
-        prev_btn = tk.Button(
+        prev_btn = self._make_button(
             nav_frame,
             text="< Previous Page",
-            command=lambda: self._on_change_page(-1),
-            **self.common_kwargs
+            command=lambda: self._on_change_page(-1)
         )
         prev_btn.grid(row=0, column=0, pady=5, sticky="ew")
 
         # Next Page Button
-        next_btn = tk.Button(
+        next_btn = self._make_button(
             nav_frame,
             text="Next Page >",
-            command=lambda: self._on_change_page(1),
-            **self.common_kwargs
+            command=lambda: self._on_change_page(1)
         )
         next_btn.grid(row=1, column=0, pady=5, sticky="ew")
 
@@ -291,29 +299,26 @@ class PromptUI:
 
         # --- Toggle Buttons --- #
         # Single Mask Toggle
-        self.single_mask_tgl = tk.Button(
+        self.single_mask_tgl = self._make_button(
             input_buttons_frame, 
             text="Single Mask", 
-            command=lambda:self._set_generation_mode("single"), 
-            **self.common_kwargs
+            command=lambda:self._set_generation_mode("single")
         )
         self.single_mask_tgl.grid(row=0, column=0, pady=5)
         
         # Multiple Masks Toggle
-        self.multiple_mask_tgl = tk.Button(
+        self.multiple_mask_tgl = self._make_button(
             input_buttons_frame, 
             text="Multiple Masks", 
-            command=lambda:self._set_generation_mode("multiple"), 
-            **self.common_kwargs
+            command=lambda:self._set_generation_mode("multiple")
         )
         self.multiple_mask_tgl.grid(row=1, column=0, pady=5)
 
         # Bounding Box Toggle: Click and drag
-        self.bbox_btn = tk.Button(
+        self.bbox_btn = self._make_button(
             input_buttons_frame,
             text="BBox: OFF",
-            command=self._toggle_bbox_mode,
-            **self.common_kwargs
+            command=self._toggle_bbox_mode
         )
         self.bbox_btn.grid(row=3, column=0, pady=5)
 
@@ -338,34 +343,31 @@ class PromptUI:
             decision_buttons_frame.rowconfigure(r, weight=1)
 
         # Correct = status "correct"
-        correct_btn = tk.Button(
+        correct_btn = self._make_button(
             decision_buttons_frame,
             text="Correct",
-            command=lambda: self._on_submit_decision("correct"), 
-            **self.common_kwargs
+            command=lambda: self._on_submit_decision("correct"),
+            highlight="green"
         )
         correct_btn.grid(row=0, column=0, pady=5)
-        correct_btn.config(highlightbackground="green", highlightthickness=2)
 
         # Incorrect = status "incorrect"
-        incorrect_btn = tk.Button(
+        incorrect_btn = self._make_button(
             decision_buttons_frame, 
             text="Incorrect", 
-            command=lambda: self._on_submit_decision("incorrect"), 
-            **self.common_kwargs
+            command=lambda: self._on_submit_decision("incorrect"),
+            highlight="orange"
         )
         incorrect_btn.grid(row=1, column=0, pady=5)
-        incorrect_btn.config(highlightbackground="orange", highlightthickness=2)
 
         # Discard = status "discarded"
-        discard_btn = tk.Button(
+        discard_btn = self._make_button(
             decision_buttons_frame, 
             text="Discard", 
-            command=lambda: self._on_submit_decision("discarded"), 
-            **self.common_kwargs
+            command=lambda: self._on_submit_decision("discarded"),
+            highlight="red"
         )
         discard_btn.grid(row=2, column=0, pady=5)
-        discard_btn.config(highlightbackground="red", highlightthickness=2)
 
 
     # ---------------------------------------------------------
@@ -410,7 +412,6 @@ class PromptUI:
             self.current_page_index = valid_pages[new_idx]
             self._show_page()
 
-
     # ---------------------------------------------------------
     def _on_generate_mask(self):
         """
@@ -419,6 +420,8 @@ class PromptUI:
         - Correct data -> Calls the model to predict masks with the input & prints the mask overlay
         - Incorrect data -> Calls the _print_error function
         """
+        assert self.prompt_text is not None
+
         # Clear errors
         self._update_error()
 
@@ -437,16 +440,18 @@ class PromptUI:
             return
 
         # --- Run model on current image --- #
-        assert self.current_pil_page is not None
-        pil_page = self.current_pil_page.copy()
+        if self.current_image is None:
+            self._update_error("No image loaded")
+            return
+        pil_page = self._get_page(self.current_page_index)
 
         # Save page model output
         output = self.model_manager.run_model(pil_page, prompt, self.generation_mode, bbox=self.bbox)
+        print(f"Model output: {output}")
         self.page_outputs[self.current_page_index] = output
 
         # Render & Display mask overlay
         self._show_page()
-
 
     # ---------------------------------------------------------
     def _on_submit_decision(self, status_value):
@@ -488,7 +493,6 @@ class PromptUI:
         self.current_img_index += 1
         self._load_image(self.current_img_index)    # Show next image
         self._update_progress()                     # Update progress bar
-        
 
     # ---------------------------------------------------------
     def _on_label_rest(self):
@@ -498,6 +502,8 @@ class PromptUI:
         Validates the user prompt and generation mode, then runs the model
         in bulk on all remaining images before closing the UI
         """
+        assert self.prompt_text is not None
+
         # Clear errors
         self._update_error()
 
@@ -533,6 +539,9 @@ class PromptUI:
 
         :param msg (str): Error message string
         """
+        assert self.error_label is not None
+        assert self.progress is not None
+
         self.error_label.config(text=msg)
 
     # ---------------------------------------------------------
@@ -540,13 +549,53 @@ class PromptUI:
         """
         Updates the progress bar based on current image index
         """
+        assert self.error_label is not None
+        assert self.progress is not None
+
         self.progress["value"] = self.current_img_index
 
+    def _prepare_image_pages(self, pil_img):
+        """
+        Given an image prepare the pages
+        
+        :param pil_img: PIL Image that we are currently on
+        :retrun: the valid pages of such image
+        """
+        num_pages = getattr(pil_img, "n_frames", 1)
+        pages = [p for p in self.pages_to_label if 0 <= p < num_pages]
+        return pages
+    
+    def _init_page_outputs(self, valid_pages: list[int]) -> None:
+        """
+        Initalize the page outputs dict
+
+        :param valid_pages: Valid pages to label of this image
+        """
+        self.page_outputs = {p: None for p in valid_pages}
+
+    # ---------------------------------------------------------
+    def _make_button(self, parent, *, text, command, highlight=None):
+        """
+        Creates a tkinter button
+        
+        :param parent: Parent frame to where the button is placed
+        :param text: Text of the button
+        :param command: Command activated by pressing the button
+        :param highlight: Color of the button highlight (default false)
+        """
+        btn = tk.Button(parent, text=text, command=command, **self.common_kwargs)
+        if highlight:
+            btn.config(highlightbackground=highlight, highlightthickness=2)
+        return btn
+    
     # ---------------------------------------------------------
     def _update_generation_toggle(self):
         """
         Update visual state of generation mode toggle buttons
         """
+        assert self.single_mask_tgl is not None
+        assert self.multiple_mask_tgl is not None
+
         if self.generation_mode == "single":
             self.single_mask_tgl.config(relief="sunken", bg="#d0f0d0")
             self.multiple_mask_tgl.config(relief="raised", bg=self.default_btn_bg)
@@ -572,6 +621,9 @@ class PromptUI:
         When enabled, users can draw a bounding box on the image canvas.
         Disabling the mode clears any existing bounding box
         """
+        assert self.img_canvas is not None
+        assert self.bbox_btn is not None
+
         self.bbox_enabled = not self.bbox_enabled
         self.bbox = None
         self.img_canvas.delete("bbox")
@@ -589,8 +641,11 @@ class PromptUI:
 
         :param event: Tkinter mouse event
         """
+        assert self.img_canvas is not None
+        assert self.bbox_btn is not None
         if not self.bbox_enabled:
             return
+        
         self.bbox_start = (event.x, event.y)
         self.img_canvas.delete("bbox")
 
@@ -604,6 +659,8 @@ class PromptUI:
 
         :param event: Tkinter mouse event
         """
+        assert self.img_canvas is not None
+        assert self.bbox_btn is not None
         if not self.bbox_enabled or not self.bbox_start:
             return
 
@@ -626,6 +683,10 @@ class PromptUI:
 
         :param event: Tkinter mouse event
         """
+        assert self.img_canvas is not None
+        assert self.bbox_btn is not None
+        assert self.orig_w is not None
+        assert self.orig_h is not None
         if not self.bbox_enabled or not self.bbox_start:
             return
 
@@ -656,36 +717,74 @@ class PromptUI:
         """
         Updates the page information label if it exists
         """
-        # Check correctness
-        if not hasattr(self, "page_info_label"):
-            return
+        assert self.page_info_label is not None
 
+        # Store values and compute page number and total pages
         img_name = Path(self.imgs_paths[self.current_img_index]).name
         p_idx = self.current_page_index
         valid_pages = self.valid_pages_to_label
         shown_idx = valid_pages.index(p_idx) + 1
         total = len(valid_pages)
 
+        # Display label
         self.page_info_label.config(
             text=f"Displaying selected page {shown_idx} of {total} "
                 f"(page {p_idx}) in image {img_name}"
         )
+    
+    # ---------------------------------------------------------
+    def _get_page(self, page_index: int) -> Image.Image:
+        """
+        Get the page on given index from the image container
+        
+        :param page_index: Index of the page we are looking for
+        :return: The desired page as a PIL Image
+        """
+        assert self.current_image is not None
+        self.current_image.seek(page_index)
+        return self.current_image.copy()
+    
+    # ---------------------------------------------------------
+    def _get_overlay_image(self, page_index: int) -> Image.Image:
+        """
+        Returns a PIL image of the given page with mask overlay applied
+        This image is not yet resized for UI display
+        
+        :param page_index: Index of the page in the TIFF
+        """        
+        # Get the page
+        pil_page = self._get_page(page_index)
+        self.orig_w, self.orig_h = pil_page.size
 
+        # Overlay mask if exists
+        output = self.page_outputs.get(page_index)
+        if output is not None:
+            print("There is output in the page!")
+            pil_page = self.model_manager.render_image_with_mask(pil_page, output)
+        
+        return pil_page
+    
     # ---------------------------------------------------------
     def _show_page(self):
         """
         Displays the currently selected page of the current image
         """
+        assert self.img_canvas is not None
+        assert self.page_info_label is not None
+
         # Get PIL image with overlay
         pil_page = self._get_overlay_image(self.current_page_index)
+        print(f"Pil page size: {pil_page.size}")
 
         # Resize to fit UI canvas
         max_display_size = (900, 900)
-        pil_page.thumbnail(max_display_size, Image.LANCZOS)
+        pil_page.thumbnail(max_display_size, Image.Resampling.LANCZOS)
         self.tk_img = ImageTk.PhotoImage(pil_page)
         
         # Calculate scaling factors for bbox
         disp_w, disp_h = pil_page.size
+        assert self.orig_w is not None
+        assert self.orig_h is not None
         self.disp_sx = self.orig_w / disp_w
         self.disp_sy = self.orig_h / disp_h
 
@@ -700,27 +799,8 @@ class PromptUI:
         # Update page label
         self._update_page_label()
 
-    # ---------------------------------------------------------
-    def _get_overlay_image(self, page_index: int) -> Image.Image:
-        """
-        Returns a PIL image of the given page with mask overlay applied
-        This image is not yet resized for UI display
-        
-        :param page_index: Index of the page in the TIFF
-        """
-        assert self.current_pil_page is not None, "No current image loaded"
-        
-        # Get the page
-        self.current_pil_page.seek(page_index)
-        pil_page = self.current_pil_page.copy()
-        self.orig_w, self.orig_h = pil_page.size
-
-        # Overlay mask if exists
-        output = self.page_outputs.get(page_index)
-        if output is not None:
-            pil_page = self.model_manager.render_image_with_mask(pil_page, output)
-        
-        return pil_page
+    
+    
         
 # ---------------------------------------------------------
 # Debug grid

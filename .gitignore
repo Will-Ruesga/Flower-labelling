@@ -3,6 +3,7 @@ sam3/
 
 # Environment
 .venv-labelling/
+.venv-lab-test/
 .labelling/
 .env
 

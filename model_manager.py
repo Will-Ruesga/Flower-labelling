@@ -191,6 +191,7 @@ class ModelManager:
         """
         # No masks -> return original image
         if results is None or len(results["scores"]) == 0:
+            print(f"Are results none?")
             return image
 
         # Delegate rendering to plotting helper

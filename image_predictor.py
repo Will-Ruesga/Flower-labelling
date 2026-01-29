@@ -11,6 +11,7 @@ NONE_B = "-- Select one"
 AUTO_B = "Automatic labelling"
 PROMPT_B = "Prompt labelling"
 BEHAVIORS = (NONE_B, [AUTO_B, PROMPT_B])
+CKPT_PATH = "checkpoints/model.safetensors"
 
 # Call Base UI to select the task
 taskSelection = TaskSelectionUI(BEHAVIORS)
@@ -33,8 +34,7 @@ sam3_root = files("sam3")
 bpe_resource = sam3_root / "assets" / "bpe_simple_vocab_16e6.txt.gz"
 with as_file(bpe_resource) as bpe_path:
     assert isinstance(bpe_path, Path)
-    processor = load_model(bpe_path)
-processor = load_model(bpe_path)
+    processor = load_model(CKPT_PATH, bpe_path)
 
 # Set up workspace
 # header, corr_path, inc_path = setup_workspace(data_path)

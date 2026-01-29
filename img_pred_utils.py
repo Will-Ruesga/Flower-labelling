@@ -11,10 +11,10 @@ from PIL import Image
 from pathlib import Path
 from skimage.color import rgb2lab, lab2rgb
 
-from sam3.sam3.model_builder import build_sam3_image_model
-from sam3.sam3.model.sam3_image_processor import Sam3Processor
+from sam3.model_builder import build_sam3_image_model
+from sam3.model.sam3_image_processor import Sam3Processor
 
-
+from safetensors.torch import load_file
 
 # ------------------------------------------------------------------------------------------------ #
 #                                      DATA UTILITY FUNCTIONS                                      #
@@ -22,23 +22,46 @@ from sam3.sam3.model.sam3_image_processor import Sam3Processor
 # ---------------------------------------------------------
 # Load Model
 # ---------------------------------------------------------
-def load_model(bpe_path: Path | None):
+def load_model(checkpoint_path: Path | str, bpe_path: Path | None):
     """
-    Load the SAM3 image model and its processor.
-
-    :param vocab_path: Path to the BPE vocabulary file. If None, the model is loaded with default settings.
+    Load the SAM3 image model and its processor
+    
+    :param checkpoint_path: Path to model checkpoint (locally not huggingface login)
+    :param vocab_path: Path to the BPE vocabulary file. If None, the model is loaded with default settings
 
     :return Sam3Processor: The processor for the loaded model
     """
-    # Check if the vocab path exists
+    # Check if paths exist
+    if checkpoint_path is None:
+        model = build_sam3_image_model(bpe_path=str(bpe_path))
+    checkpoint_path = Path(checkpoint_path)
     if bpe_path is not None:
         if not bpe_path.exists():
             raise FileNotFoundError(f"The vocabulary path '{str(bpe_path)}' does not exist.")
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint path '{checkpoint_path}' does not exist.")
 
-    # Build the model
-    model = build_sam3_image_model(bpe_path=str(bpe_path))
-    
-    # Return the model processor
+    # Force SAM3 to skip HF download by passing checkpoint_path directly
+    if checkpoint_path.suffix == ".safetensors":
+        # safetensors requires special loader
+        model = build_sam3_image_model(bpe_path=str(bpe_path), checkpoint_path=None, load_from_HF=False)
+        ckpt_data = load_file(checkpoint_path)
+        sam3_image_ckpt = {k.replace("detector.", ""): v for k, v in ckpt_data.items() if "detector" in k}
+        if model.inst_interactive_predictor is not None:
+            sam3_image_ckpt.update(
+                {
+                    k.replace("tracker.", "inst_interactive_predictor.model."): v
+                    for k, v in ckpt_data.items()
+                    if "tracker" in k
+                }
+            )
+        # Load into model
+        model.load_state_dict(sam3_image_ckpt, strict=False)
+        # if len(missing_keys) > 0:
+        #     print(f"loaded {checkpoint_path} and found missing/unexpected keys:\n{missing_keys=}")
+    else:
+        raise RuntimeError(f"Unsupported checkpoint format: {checkpoint_path.suffix}")
+
     return Sam3Processor(model)
 
 
