@@ -10,11 +10,11 @@ import matplotlib.patches as patches
 from PIL import Image
 from pathlib import Path
 from skimage.color import rgb2lab, lab2rgb
+from safetensors.torch import load_file
 
 from sam3.model_builder import build_sam3_image_model
 from sam3.model.sam3_image_processor import Sam3Processor
 
-from safetensors.torch import load_file
 
 # ------------------------------------------------------------------------------------------------ #
 #                                      DATA UTILITY FUNCTIONS                                      #
@@ -32,35 +32,35 @@ def load_model(checkpoint_path: Path | str, bpe_path: Path | None):
     :return Sam3Processor: The processor for the loaded model
     """
     # Check if paths exist
-    if checkpoint_path is None:
-        model = build_sam3_image_model(bpe_path=str(bpe_path))
-    checkpoint_path = Path(checkpoint_path)
-    if bpe_path is not None:
-        if not bpe_path.exists():
-            raise FileNotFoundError(f"The vocabulary path '{str(bpe_path)}' does not exist.")
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(f"Checkpoint path '{checkpoint_path}' does not exist.")
+    # if checkpoint_path is None:
+    model = build_sam3_image_model(bpe_path=str(bpe_path))
+    # checkpoint_path = Path(checkpoint_path)
+    # if bpe_path is not None:
+    #     if not bpe_path.exists():
+    #         raise FileNotFoundError(f"The vocabulary path '{str(bpe_path)}' does not exist.")
+    # if not checkpoint_path.exists():
+    #     raise FileNotFoundError(f"Checkpoint path '{checkpoint_path}' does not exist.")
 
-    # Force SAM3 to skip HF download by passing checkpoint_path directly
-    if checkpoint_path.suffix == ".safetensors":
-        # safetensors requires special loader
-        model = build_sam3_image_model(bpe_path=str(bpe_path), checkpoint_path=None, load_from_HF=False)
-        ckpt_data = load_file(checkpoint_path)
-        sam3_image_ckpt = {k.replace("detector.", ""): v for k, v in ckpt_data.items() if "detector" in k}
-        if model.inst_interactive_predictor is not None:
-            sam3_image_ckpt.update(
-                {
-                    k.replace("tracker.", "inst_interactive_predictor.model."): v
-                    for k, v in ckpt_data.items()
-                    if "tracker" in k
-                }
-            )
-        # Load into model
-        model.load_state_dict(sam3_image_ckpt, strict=False)
-        # if len(missing_keys) > 0:
-        #     print(f"loaded {checkpoint_path} and found missing/unexpected keys:\n{missing_keys=}")
-    else:
-        raise RuntimeError(f"Unsupported checkpoint format: {checkpoint_path.suffix}")
+    # # Force SAM3 to skip HF download by passing checkpoint_path directly
+    # if checkpoint_path.suffix == ".safetensors":
+    #     # safetensors requires special loader
+    #     model = build_sam3_image_model(bpe_path=str(bpe_path), checkpoint_path=None, load_from_HF=False)
+    #     ckpt_data = load_file(checkpoint_path)
+    #     sam3_image_ckpt = {k.replace("detector.", ""): v for k, v in ckpt_data.items() if "detector" in k}
+    #     if model.inst_interactive_predictor is not None:
+    #         sam3_image_ckpt.update(
+    #             {
+    #                 k.replace("tracker.", "inst_interactive_predictor.model."): v
+    #                 for k, v in ckpt_data.items()
+    #                 if "tracker" in k
+    #             }
+    #         )
+    #     # Load into model
+    #     model.load_state_dict(sam3_image_ckpt, strict=False)
+    #     # if len(missing_keys) > 0:
+    #     #     print(f"loaded {checkpoint_path} and found missing/unexpected keys:\n{missing_keys=}")
+    # else:
+    #     raise RuntimeError(f"Unsupported checkpoint format: {checkpoint_path.suffix}")
 
     return Sam3Processor(model)
 
@@ -184,7 +184,11 @@ def _save_to_csv(image_path: Path, out_dict: dict, header: list[str]):
 # ---------------------------------------------------------
 # Transform Masks to Polygon String
 # ---------------------------------------------------------
-def masks_to_polygon_string(masks):
+def page_outputs_to_polygon_string():
+    return
+
+
+def _masks_to_polygon_string(masks):
     """
     Convert a list/array/tensor of binary masks [N,H,W]
     into a nested polygon string: [[{X:[..],Y:[..]}],[{..}]]
@@ -192,7 +196,7 @@ def masks_to_polygon_string(masks):
     :param masks: Output masks of the model
     """
     # Loop for each page / region
-    regions = []
+    page_masks = []
     for i in range(len(masks)):
         # Convert mask to numpy
         mask_np = torch.squeeze(masks[i]).detach().cpu().numpy()
@@ -202,31 +206,35 @@ def masks_to_polygon_string(masks):
         contours, _ = cv2.findContours(mask_np.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE) # pyright: ignore[reportAttributeAccessIssue]
 
         # Store each contour formatted as {X:[...], Y:[...]}
-        polys = []
+        mask_contours = []
         for cnt in contours:
             pts = cnt.reshape(-1, 2)
-            xs = pts[:, 0].astype(float).tolist()
-            ys = pts[:, 1].astype(float).tolist()
+            xs = ",".join(_fmt(x) for x in pts[:, 0])
+            ys = ",".join(_fmt(y) for y in pts[:, 1])
+            mask_contours.append(f"{{X:{xs},Y:{ys}}}")
 
-            polys.append(f"{{X:{xs},Y:{ys}}}")
-
-        # Append polygons for this page
-        regions.append(f"[{','.join(polys)}]")
-
-    # Join all pages (TIFF-level)
-    return f"[{','.join(regions)}]"
+        page_masks.append(f"[{','.join(mask_contours)}]")
+    
+    # One page finished
+    return f"[{','.join(page_masks)}]"
 
 
 def _fmt(v: float) -> str:
     """
     Compact float formatting for memory efficiency
     """
-    print(v)
+    v = float(v)
+    # Check if it is 0.0 retrun 0
+    if v == 0.0:
+        return "0"
+    # If integer return only the Real number
     if v.is_integer():
         return str(int(v))
+    
+    # If float with 0.xxx return .xxx
     s = f"{v:.6f}".rstrip("0").rstrip(".")
     ret = s[1:] if s.startswith("0.") else s
-    print(ret)
+    
     return ret
 
 # ---------------------------------------------------------

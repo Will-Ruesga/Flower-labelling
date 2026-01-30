@@ -7,7 +7,7 @@ from typing import Dict, Optional, Any
 
 from model_manager import ModelManager
 
-
+# Defines
 BTN_WIDTH = 12
 BTN_HEIGHT = 1
 
@@ -88,13 +88,21 @@ class PromptUI:
             "relief": "solid",
             "bd": 2,
         }
+
+        self.common_kwargs_small = {
+            "font": ("Arial", 8),
+            "width": 2,
+            "height": BTN_HEIGHT,
+            "relief": "solid",
+            "bd": 2,
+        }
         # Button background
         self.default_btn_bg = tk.Button(self.root).cget("bg")
 
         # -------------------------------------------------
         # UI Layout
         # Make all 4 columns equal width
-        for c in range(4):
+        for c in range(3):
             self.root.columnconfigure(c, weight=1, minsize=250)
 
         # Make image display rows large, control rows smaller
@@ -117,7 +125,7 @@ class PromptUI:
         # Add frames to the UI
         self._build_status_bar()
         self._prompt_text_box()
-        self._build_page_nav_buttons()
+        # self._build_page_nav_buttons()
         self._mask_input_buttons()
         self._mask_generate_buttons()
         self._decision_buttons()
@@ -198,12 +206,47 @@ class PromptUI:
         promt_text_label.grid(row=0, column=0, padx=10, pady=(0, 5), sticky="nw")
 
         # Page info label
-        self.page_info_label = tk.Label(prompt_frame, text="", font=("Arial", 11, "italic"), fg="gray")
+        self.page_info_label = tk.Label(prompt_frame, text="", font=("Arial", 10, "italic"), fg="gray")
         self.page_info_label.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="nw")
+
+        # Inject navigation buttons NEXT to label
+        self._build_page_nav_buttons(prompt_frame)
 
         # Text box 
         self.prompt_text = tk.Text(prompt_frame, height=5,font=("Arial", 14),wrap="word",)
-        self.prompt_text.grid(row=2, column=0, padx=10, sticky="ew")
+        self.prompt_text.grid(row=2, column=0, columnspan=3,  padx=10, sticky="ew")
+
+
+    # ---------------------------------------------------------  
+    def _build_page_nav_buttons(self, frame: tk.Frame):
+        """
+        Creates Previous / Next page navigation buttons
+        Positioned in the SAME row as the prompt, NEXT column
+        """
+
+        # Configure grid in frame
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(0, weight=1)
+        frame.grid_rowconfigure(1, weight=1)
+
+        # --- Generate Page Navigation Buttons --- #
+        # Previous Page Button
+        prev_btn = tk.Button(
+            frame, 
+            text="<", 
+            command=lambda: self._on_change_page(-1), 
+            **self.common_kwargs_small
+        )
+        prev_btn.grid(row=1, column=1, pady=5, sticky="ew")
+
+        # Next Page Button
+        next_btn = tk.Button(
+            frame, 
+            text=">",
+            command=lambda: self._on_change_page(1), 
+            **self.common_kwargs_small
+        )
+        next_btn.grid(row=1, column=2, pady=5, sticky="ew")
 
 
     # ---------------------------------------------------------
@@ -243,44 +286,9 @@ class PromptUI:
         )
         label_rest_btn.grid(row=0, column=1, padx=15)
 
-    
-    # ---------------------------------------------------------
-    # ROW 8-9, COL 1: Page Navigation Buttons
-    # ---------------------------------------------------------  
-    def _build_page_nav_buttons(self):
-        """
-        Creates Previous / Next page navigation buttons
-        Positioned in the SAME row as the prompt, NEXT column
-        """
-        # Frame for page navigation buttons
-        nav_frame = tk.Frame(self.root)
-        nav_frame.grid(row=8, column=1, rowspan=1, columnspan=1, padx=5, pady=5, sticky="nsew")
-
-        # Configure grid in frame
-        nav_frame.grid_columnconfigure(0, weight=1)
-        nav_frame.grid_rowconfigure(0, weight=1)
-        nav_frame.grid_rowconfigure(1, weight=1)
-
-        # --- Generate Page Navigation Buttons --- #
-        # Previous Page Button
-        prev_btn = self._make_button(
-            nav_frame,
-            text="< Previous Page",
-            command=lambda: self._on_change_page(-1)
-        )
-        prev_btn.grid(row=0, column=0, pady=5, sticky="ew")
-
-        # Next Page Button
-        next_btn = self._make_button(
-            nav_frame,
-            text="Next Page >",
-            command=lambda: self._on_change_page(1)
-        )
-        next_btn.grid(row=1, column=0, pady=5, sticky="ew")
-
 
     # ---------------------------------------------------------
-    # ROW 8-10, COL 2: Mask Input Buttons
+    # ROW 8-10, COL 1: Mask Input Buttons
     # ---------------------------------------------------------
     def _mask_input_buttons(self):
         """
@@ -290,7 +298,7 @@ class PromptUI:
         """
         # Frame for mask generation buttons
         input_buttons_frame = tk.LabelFrame(self.root, text="Input", font=("Arial", 10), relief="solid", bd=1)
-        input_buttons_frame.grid(row=8, column=2, rowspan=3, columnspan=1, padx=5, pady=5, sticky="nsew")
+        input_buttons_frame.grid(row=8, column=1, rowspan=3, columnspan=1, padx=5, pady=5, sticky="nsew")
         
         # Add importance to grid frame for good spacing
         input_buttons_frame.grid_columnconfigure(0, weight=1)
@@ -324,7 +332,7 @@ class PromptUI:
 
 
     # ---------------------------------------------------------
-    # ROW 8-10, COL 3: Decision Buttons
+    # ROW 8-10, COL 2: Decision Buttons
     # ---------------------------------------------------------
     def _decision_buttons(self):
         """
@@ -335,7 +343,7 @@ class PromptUI:
         """ 
         # Frame for the two buttons
         decision_buttons_frame = tk.LabelFrame(self.root, text="Correctness Desicion", font=("Arial", 10), relief="solid", bd=1)
-        decision_buttons_frame.grid(row=8, column=3, rowspan=3, columnspan=1, padx=5, pady=5, sticky="nsew")
+        decision_buttons_frame.grid(row=8, column=2, rowspan=3, columnspan=1, padx=5, pady=5, sticky="nsew")
         decision_buttons_frame.grid_columnconfigure(0, weight=1)
         # Add importance to grid frame for good spacing
         decision_buttons_frame.grid_columnconfigure(0, weight=1)
@@ -364,7 +372,7 @@ class PromptUI:
         discard_btn = self._make_button(
             decision_buttons_frame, 
             text="Discard", 
-            command=lambda: self._on_submit_decision("discarded"),
+            command=lambda: self._on_submit_decision("discard"),
             highlight="red"
         )
         discard_btn.grid(row=2, column=0, pady=5)
@@ -447,7 +455,6 @@ class PromptUI:
 
         # Save page model output
         output = self.model_manager.run_model(pil_page, prompt, self.generation_mode, bbox=self.bbox)
-        print(f"Model output: {output}")
         self.page_outputs[self.current_page_index] = output
 
         # Render & Display mask overlay
@@ -469,14 +476,14 @@ class PromptUI:
         # --- Check data correctness --- #
         # Check mask has been generated for every page
         for vp in self.valid_pages_to_label:
-            if self.page_outputs[vp] is None:
+            if self.page_outputs[vp] is None and status_value != "discard":
                 self._update_error("Please generate the mask in all pages before submitting")
                 return
 
         # --- Save current image (all pages) to CSV ---
         self.model_manager.save_single_image(
             img_path=self.imgs_paths[self.current_img_index],
-            output=self.page_outputs,
+            page_outputs=self.page_outputs,
             correctness_label=status_value,
             header=self.header
         )
@@ -759,7 +766,6 @@ class PromptUI:
         # Overlay mask if exists
         output = self.page_outputs.get(page_index)
         if output is not None:
-            print("There is output in the page!")
             pil_page = self.model_manager.render_image_with_mask(pil_page, output)
         
         return pil_page
@@ -774,7 +780,6 @@ class PromptUI:
 
         # Get PIL image with overlay
         pil_page = self._get_overlay_image(self.current_page_index)
-        print(f"Pil page size: {pil_page.size}")
 
         # Resize to fit UI canvas
         max_display_size = (900, 900)

@@ -4,7 +4,7 @@ from PIL import Image
 from pathlib import Path
 from typing import List, Dict, Any
 
-from img_pred_utils import masks_to_polygon_string, find_bigbbox, _save_to_csv, plot_results
+from img_pred_utils import _masks_to_polygon_string, find_bigbbox, _save_to_csv, plot_results
 
 
 class ModelManager:
@@ -96,7 +96,7 @@ class ModelManager:
             return "[]", "[]", False
 
         # Masks present -> convert them
-        mask_rle = masks_to_polygon_string(output["masks"])
+        mask_rle = _masks_to_polygon_string(output["masks"])
         mask_bbox = find_bigbbox(output["boxes"])
 
         return mask_rle, mask_bbox, True
@@ -214,7 +214,7 @@ class ModelManager:
         _save_to_csv(first_path, out_dict, header)
 
 
-    def save_single_image(self, img_path, output, correctness_label, header):
+    def save_single_image(self, img_path, page_outputs, correctness_label, header):
         """
         Saves segmentation results for one image into the CSV file.
         This is used by the UI when the user labels image-by-image.
@@ -224,23 +224,37 @@ class ModelManager:
         :param correctness_label: "correct", "incorrect", or "discard" depending on UI selection
         :param header: CSV header list defining output order
         """
+        # Iterate over pages
+        page_masks = []
+        page_bboxes = []
+        missing_ouput = False
+        for page_idx in sorted(page_outputs.keys()):
+            output = page_outputs[page_idx]
 
-        # No masks detected
-        if len(output["scores"]) == 0:
-            mask_rle = "[]"
-            mask_bbox = "[]"
-            status = "discard"
-        else:
-            mask_rle = masks_to_polygon_string(output["masks"])
-            mask_bbox = find_bigbbox(output["boxes"])
-            status = correctness_label   # "1", "2", or "3"
+            # No detections in this page
+            if len(output["scores"]) == 0:
+                page_masks.append("[]")
+                page_bboxes.append("[]")
+                missing_ouput = True
+                continue
+
+            # Masks for this page
+            page_mask_str = _masks_to_polygon_string(output["masks"])
+            page_bbox_str = find_bigbbox(output["boxes"])
+
+            page_masks.append(page_mask_str)
+            page_bboxes.append(page_bbox_str)
+
+        # Set to discard if there is a miss in detection
+        if missing_ouput:
+            correctness_label = "discard"
 
         # Build output dict for ONE row
         out_dict = {key: [] for key in header if key not in {"csv_abspath", "csv_rel_img_path"}}
         out_dict["image_abspath"].append(img_path)
-        out_dict["mask_rle"].append("[" + mask_rle + "]")
-        out_dict["mask_bbox"].append("[" + mask_bbox + "]")
-        out_dict["status"].append(status)
+        out_dict["mask_rle"].append(f"[{','.join(page_masks)}]")
+        out_dict["mask_bbox"].append(f"[{','.join(page_bboxes)}]")
+        out_dict["status"].append(correctness_label)
 
         # Save row
         _save_to_csv(Path(img_path), out_dict, header)

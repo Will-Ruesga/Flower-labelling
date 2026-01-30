@@ -4,9 +4,9 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, filedialog
 
-########################################
-#            Choose UI Class           #
-########################################
+# ---------------------------------------------------------
+# Choose UI Class
+# ---------------------------------------------------------
 class TaskSelectionUI:
     def __init__(self, behaviors):
         # Initialize variables
@@ -35,9 +35,9 @@ class TaskSelectionUI:
         # Start the loop
         self.root.mainloop()
 
-    ########################################
-    #  ROW 0-1, COL 0: Task Drop Down Menu #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 0-1, COL 0: Task Drop Down Menu
+    # ---------------------------------------------------------
     def _select_task_drop(self):
         """
         Creates Tkinter UI with a dropdown menu to select task type
@@ -55,9 +55,9 @@ class TaskSelectionUI:
         combo.grid(row=1, column=0, columnspan=2, padx=50, pady=10, sticky="ew")
     
 
-    ########################################
-    # ROW 2, COL 0: Data Type Radio Button #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 2, COL 0: Data Type Radio Button
+    # ---------------------------------------------------------
     def _data_type_radio(self):
         """
         Creates two radio buttons side by side that specify the data type -> (.csv or [images])
@@ -82,9 +82,9 @@ class TaskSelectionUI:
         img_radio.grid(row=1, column=1, padx=20)
 
 
-    ########################################
-    #   ROW 3, COL 0: File Browser Frame   #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 3, COL 0: File Browser Frame
+    # ---------------------------------------------------------
     def _file_browser_frame(self):
         """
         Creates a frame with a display-only text box and a 'Browse' button
@@ -111,9 +111,9 @@ class TaskSelectionUI:
         browse_btn.grid(row=1, column=1, padx=10, pady=5)
 
 
-    ########################################
-    #      ROW 4, COL 0: Error Message     #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 4, COL 0: Error Message
+    # ---------------------------------------------------------
     def _print_error(self, msg="Error in selection!"):
         """
         Creates a small text in red when there has been an error in the selection
@@ -127,9 +127,9 @@ class TaskSelectionUI:
         self.error_label.grid(row=0, column=0, padx=10, pady=5)
 
 
-    ########################################
-    #   ROW 5, COL 0: Submit Info Button   #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 5, COL 0: Submit Info Button
+    # ---------------------------------------------------------
     def _sumbit_info_button(self):
         """
         Creates a button to submit the information
