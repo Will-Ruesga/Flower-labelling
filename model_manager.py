@@ -317,13 +317,24 @@ def _big_bbox_xywh(boxes):
 
 
 # ---------------------------------------------------------
+def _bbox_to_ints(bbox_xywh):
+    """
+    Converts bbox values to integer pixel coordinates.
+    """
+    if not bbox_xywh:
+        return None
+    return [int(round(float(v))) for v in bbox_xywh]
+
+
+# ---------------------------------------------------------
 def _format_bbox_str(bbox_xywh):
     """
     Formats a bbox list into the CSV string representation.
     """
-    if not bbox_xywh:
+    bbox_ints = _bbox_to_ints(bbox_xywh)
+    if not bbox_ints:
         return "[]"
-    return "[" + ",".join(f"{point:.4f}" for point in bbox_xywh) + "]"
+    return "[" + ",".join(str(point) for point in bbox_ints) + "]"
 
 
 # ---------------------------------------------------------
@@ -358,8 +369,9 @@ def _build_row_dict(image_path, num_pages: int, page_outputs, status_label: str,
             row[f"Mask{page_idx}"] = mask_str_page
         if bbox_key in header_set:
             row[bbox_key] = bbox_str
-        if bbox_xywh is not None:
-            zoom_x, zoom_y, zoom_w, zoom_h = (round(v, 4) for v in bbox_xywh)
+        bbox_ints = _bbox_to_ints(bbox_xywh)
+        if bbox_ints is not None:
+            zoom_x, zoom_y, zoom_w, zoom_h = bbox_ints
         else:
             zoom_x = zoom_y = zoom_w = zoom_h = None
         if f"ZoomX{page_idx}" in header_set:
