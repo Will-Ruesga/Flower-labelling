@@ -370,8 +370,6 @@ def _build_row_dict(image_path, num_pages: int, page_outputs, status_label: str,
             row[f"ZoomWidth{page_idx}"] = zoom_w
         if f"ZoomHeight{page_idx}" in header_set:
             row[f"ZoomHeight{page_idx}"] = zoom_h
-        if f"ZooomHeight{page_idx}" in header_set:
-            row[f"ZooomHeight{page_idx}"] = zoom_h
 
     if "status" in header_set:
         row["status"] = status_label

@@ -203,7 +203,7 @@ def build_header_for_pages(num_pages: int) -> list[str]:
     zoom_cols = []
     mask_cols = []
     for i in range(num_pages):
-        zoom_cols.extend([f"ZoomX{i}", f"ZoomY{i}", f"ZoomWidth{i}", f"ZooomHeight{i}"])
+        zoom_cols.extend([f"ZoomX{i}", f"ZoomY{i}", f"ZoomWidth{i}", f"ZoomHeight{i}"])
         mask_cols.append(f"Mask{i}")
     return base_cols + zoom_cols + mask_cols
 
