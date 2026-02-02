@@ -60,6 +60,7 @@ class PromptUI:
         # -------------------------------------------------
         # Saving
         self.header = header
+        self.expected_num_pages: Optional[int] = None
 
         # -------------------------------------------------
         # UI widgets
@@ -120,12 +121,10 @@ class PromptUI:
         # --- UI Widgets --- #
         # Create image display frame and show first image
         self._build_image_display()
-        # self._load_image(self.current_img_index)
 
         # Add frames to the UI
         self._build_status_bar()
         self._prompt_text_box()
-        # self._build_page_nav_buttons()
         self._mask_input_buttons()
         self._mask_generate_buttons()
         self._decision_buttons()
@@ -171,7 +170,18 @@ class PromptUI:
         self.current_image = Image.open(img_path)
 
         # Get valid pages if no valid pages -> skip image
-        valid_pages = self._prepare_image_pages(self.current_image)
+        valid_pages, num_pages = self._prepare_image_pages(self.current_image)
+        if self.expected_num_pages is None:
+            self.expected_num_pages = num_pages
+            self._extend_header_for_pages(num_pages)
+        elif num_pages != self.expected_num_pages:
+            print(
+                f"[WARNING]: Image {img_path} has {num_pages} instead of {self.expected_num_pages} "
+                "it might correspond toa different dataset."
+            )
+            self._load_image(image_index + 1)
+            return
+        self.num_pages = num_pages
         if not valid_pages:
             self._load_image(image_index + 1)
             return
@@ -483,6 +493,7 @@ class PromptUI:
         # --- Save current image (all pages) to CSV ---
         self.model_manager.save_single_image(
             img_path=self.imgs_paths[self.current_img_index],
+            num_pages=self.num_pages,
             page_outputs=self.page_outputs,
             correctness_label=status_value,
             header=self.header
@@ -530,8 +541,13 @@ class PromptUI:
         
         # --- Run model in bulk for the rest of the images --- #
         remaining_paths = self.imgs_paths[self.current_img_index:]
+        remaining_paths = self._filter_paths_by_num_pages(remaining_paths)
+        if not remaining_paths:
+            self.root.destroy()
+            return
 
-        self.model_manager.run_model_bulk(remaining_paths, prompt, self.header, self.generation_mode)
+        rows = self.model_manager.run_model_bulk(remaining_paths, prompt, self.header, self.generation_mode)
+        self.model_manager.save_rows_to_csv(rows, self.header)
 
         # Close UI after processing
         self.root.destroy()
@@ -570,7 +586,45 @@ class PromptUI:
         """
         num_pages = getattr(pil_img, "n_frames", 1)
         pages = [p for p in self.pages_to_label if 0 <= p < num_pages]
-        return pages
+        return pages, num_pages
+
+    def _extend_header_for_pages(self, num_pages: int) -> None:
+        """
+        Extends the header once with per-page zoom/mask columns.
+        """
+        base_cols = ["fileName", "status"]
+        zoom_cols = []
+        mask_cols = []
+        for i in range(num_pages):
+            zoom_cols.extend([f"ZoomX{i}", f"ZoomY{i}", f"ZoomWidth{i}", f"ZooomHeight{i}"])
+            mask_cols.append(f"Mask{i}")
+        self.header[:] = base_cols + zoom_cols + mask_cols
+
+    def _filter_paths_by_num_pages(self, paths: list[str]) -> list[str]:
+        """
+        Keeps only images with the expected number of pages.
+        """
+        if self.expected_num_pages is None:
+            return paths
+
+        filtered = []
+        for p in paths:
+            try:
+                with Image.open(p) as img:
+                    num_pages = getattr(img, "n_frames", 1)
+            except Exception:
+                continue
+
+            if num_pages != self.expected_num_pages:
+                print(
+                    f"[WARNING]: Image {p} has {num_pages} instead of {self.expected_num_pages} "
+                    "it might correspond toa different dataset."
+                )
+                continue
+
+            filtered.append(p)
+
+        return filtered
     
     def _init_page_outputs(self, valid_pages: list[int]) -> None:
         """

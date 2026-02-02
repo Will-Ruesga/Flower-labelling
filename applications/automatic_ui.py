@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from model_manager import ModelManager
+from img_pred_utils import init_header_from_first_image, filter_paths_by_num_pages
 
 
 ########################################
@@ -26,6 +27,7 @@ class AutomaticUI:
         self.header = header
         self.prompt = None
         self.mask_output_type = "multiple"
+        self.expected_num_pages: int | None = None
 
         # Create root once
         self.root = tk.Tk()
@@ -172,12 +174,31 @@ class AutomaticUI:
         if self.mask_output_type is None:
             self._update_error("Please choose an output type!")
             return
+
+        # Set header once based on the first image
+        if not self.imgs_paths:
+            self._update_error("No images to process.")
+            return
+        if self.expected_num_pages is None:
+            self.expected_num_pages = init_header_from_first_image(self.imgs_paths, self.header)
+        self.imgs_paths = filter_paths_by_num_pages(self.imgs_paths, self.expected_num_pages)
+        if not self.imgs_paths:
+            self._update_error("No valid images found.")
+            return
         
         # --- Run model in bulk for all the images --- #
-        self.model_manager.run_model_bulk(self.imgs_paths, self.prompt, self.header, self.mask_output_type)
+        rows = self.model_manager.run_model_bulk(
+            self.imgs_paths,
+            self.prompt,
+            self.header,
+            self.mask_output_type,
+        )
+        self.model_manager.save_rows_to_csv(rows, self.header)
         
         # Close UI after processing
         self.root.destroy()
+
+    # Shared header/page helpers live in img_pred_utils.
 
 
     def _update_error(self, msg=""):

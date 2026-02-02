@@ -52,7 +52,7 @@ data_path = Path(data_abspath)
 imgs_paths, mask_format = data_path_to_img_paths(data_path, data_type)
 
 # Set up workspace
-header = ["image_abspath", "csv_abspath", "csv_rel_img_path", "status", "mask_bbox", "mask_rle"]
+header = ["fileName", "status"]
 
 # Load model
 processor = load_model(CKPT_PATH, BPE_PATH)

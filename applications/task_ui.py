@@ -1,8 +1,8 @@
-import pandas as pd
-import tkinter as tk
-
 from pathlib import Path
+import tkinter as tk
 from tkinter import ttk, filedialog
+
+from img_pred_utils import read_csv_with_sep
 
 # ---------------------------------------------------------
 # Choose UI Class
@@ -176,15 +176,22 @@ class TaskSelectionUI:
 
         # If CSV: ensure required columns and referenced file existence
         if self.data_type == "csv":
-            df = pd.read_csv(self.data_abspath)
+            df = read_csv_with_sep(Path(self.data_abspath))
 
-            required_cols = {"image_path", "status"}
+            required_cols = {"fileName", "status"}
             if not required_cols.issubset(df.columns):
-                self._print_error("CSV is missing required columns: image_path, status.")
+                self._print_error("CSV is missing required columns: fileName, status.")
                 return
 
             # Check files exist
-            missing = [p for p in df["image_path"] if not Path(p).exists()]
+            csv_dir = Path(self.data_abspath).parent
+            missing = []
+            for p in df["fileName"].dropna():
+                img_path = Path(p)
+                if not img_path.is_absolute():
+                    img_path = (csv_dir / img_path).resolve()
+                if not img_path.exists():
+                    missing.append(p)
             if missing:
                 self._print_error(f"{len(missing)} image paths in the CSV do not exist.")
                 return

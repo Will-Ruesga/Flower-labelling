@@ -1,10 +1,9 @@
 import torch
 
 from PIL import Image
-from pathlib import Path
 from typing import List, Dict, Any
 
-from img_pred_utils import _masks_to_polygon_string, find_bigbbox, _save_to_csv, plot_results
+from img_pred_utils import masks_to_polygon_string, _save_rows_to_csv, plot_results
 
 
 class ModelManager:
@@ -16,9 +15,9 @@ class ModelManager:
     def __init__(self, processor):
         self.processor = processor
 
-    ########################################
-    #        Single Image Inference        #
-    ########################################
+    # ---------------------------------------------------------
+    # Single Image Inference
+    # ---------------------------------------------------------
     def run_model(self, image, prompt, mask_output_type, bbox=None):
         """
         Runs the model on a single image and returns the output dictionary
@@ -74,9 +73,9 @@ class ModelManager:
         return output
         
     
-    ########################################
-    #         Single Page Inference        #
-    ########################################
+    # ---------------------------------------------------------
+    # Single Page Inference
+    # ---------------------------------------------------------
     def _process_page(self, pil_page, prompt, mask_output_type):
         """
         Runs the model on a single page of an image
@@ -85,25 +84,17 @@ class ModelManager:
         :param prompt: Text prompt provided by the user
         :param mask_output_type: Either "single" or "multiple", controlling mask selection
 
-        :return mask_rle: Polygon-string representation of the mask(s), or "[]" if none
-        :return mask_bbox: Bounding box representation as a string, or "[]" if none
+        :return output: Output model dictionary with mask, bbox and score info
         :return has_mask: Boolean indicating whether at least one mask was detected
         """
         output = self.run_model(image=pil_page, prompt=prompt, bbox=None, mask_output_type=mask_output_type)
 
-        # No masks found
-        if len(output["scores"]) == 0:
-            return "[]", "[]", False
-
-        # Masks present -> convert them
-        mask_rle = _masks_to_polygon_string(output["masks"])
-        mask_bbox = find_bigbbox(output["boxes"])
-
-        return mask_rle, mask_bbox, True
+        has_mask = len(output["scores"]) > 0
+        return output, has_mask
     
-    ########################################
-    #         Single Page Inference        #
-    ########################################
+    # ---------------------------------------------------------
+    # Single Page Inference
+    # ---------------------------------------------------------
     def _process_image(self, img_path, prompt, mask_output_type):
         """
         Processes an entire image file, which may contain multiple pages (e.g., TIFF)
@@ -112,73 +103,85 @@ class ModelManager:
         :param prompt: Text prompt provided by the user
         :param mask_output_type: Either "single" or "multiple", controlling mask selection
 
-        :return mask_rle_pages: List of polygon-string mask representations for each page
-        :return mask_bbox_pages: List of bounding-box strings for each page
+        :return page_outputs: Dict with per-page model outputs
         :return status: "incorrect" if at least one mask was found across pages, otherwise "discard"
+        :return num_pages: Number of pages in the image
         """
-        pages = Image.open(img_path)
-        num_pages = getattr(pages, "n_frames", 1)
-
-        mask_rle_pages = []
-        mask_bbox_pages = []
         status = "discard"
+        page_outputs: Dict[int, Any] = {}
 
-        # Loops through pages
-        for i in range(num_pages):
-            pages.seek(i)
-            pil_page = pages.copy()
+        with Image.open(img_path) as pages:
+            num_pages = getattr(pages, "n_frames", 1)
 
-            #  Process page
-            mask_rle, mask_bbox, has_mask = self._process_page(pil_page=pil_page, prompt=prompt, mask_output_type=mask_output_type)
+            # Loops through pages
+            for i in range(num_pages):
+                pages.seek(i)
+                pil_page = pages.copy()
 
-            # Append results
-            mask_rle_pages.append(mask_rle)
-            mask_bbox_pages.append(mask_bbox)
+                # Process page
+                output, has_mask = self._process_page(
+                    pil_page=pil_page,
+                    prompt=prompt,
+                    mask_output_type=mask_output_type,
+                )
 
-            if has_mask:
-                status = "incorrect"
+                page_outputs[i] = output
 
-        return mask_rle_pages, mask_bbox_pages, status
+                if has_mask:
+                    status = "incorrect"
+
+        return page_outputs, status, num_pages
 
 
 
-    ########################################
-    #            Bulk Inference            #
-    ########################################
-    def run_model_bulk( self, imgs_paths: List[str], prompt: str, header: List[str], 
-                       mask_output_type: str = "multiple") -> Dict[str, List[Any]]:
+    # ---------------------------------------------------------
+    # Bulk Inference
+    # ---------------------------------------------------------
+    def run_model_bulk(
+        self,
+        imgs_paths: List[str],
+        prompt: str,
+        header: List[str],
+        mask_output_type: str = "multiple",
+    ) -> List[Dict[str, Any]]:
         """
-        Runs the model across multiple images and produces a dictionary suitable for CSV output
+        Runs the model across multiple images and produces a list of row dictionaries
 
         :param imgs_paths: List of absolute paths to image files
         :param prompt: Text prompt guiding segmentation
         :param header: List of CSV column names defining output structure
         :param mask_output_type: "single" or "multiple", determining number of masks returned
 
-        :return out_dict: Dictionary containing aggregated segmentation results
-                        for all images, ready to be written into a CSV file
+        :return rows: List of row dictionaries, one per image
         """
-        # Prepare output dict (no CSV paths included)
-        out_dict = {key: [] for key in header if key not in {"csv_abspath", "csv_rel_img_path"}}
+        rows: List[Dict[str, Any]] = []
 
         # Loop thourgh images
         for img_abspath in imgs_paths:
 
             # Process image fully using helper
-            rle_list, bbox_list, status = self._process_image(img_path=img_abspath, prompt=prompt, mask_output_type=mask_output_type)
+            page_outputs, status, num_pages = self._process_image(
+                img_path=img_abspath,
+                prompt=prompt,
+                mask_output_type=mask_output_type,
+            )
 
-            # Store results
-            out_dict["image_abspath"].append(img_abspath)
-            out_dict["mask_rle"].append("[" + ",".join(rle_list) + "]")
-            out_dict["mask_bbox"].append("[" + ",".join(bbox_list) + "]")
-            out_dict["status"].append(status)
+            # Build single row dict
+            row = _build_row_dict(
+                image_path=img_abspath,
+                num_pages=num_pages,
+                page_outputs=page_outputs,
+                status_label=status,
+                header=header,
+            )
+            rows.append(row)
 
-        return out_dict
+        return rows
     
 
-    ########################################
-    #             Plot Resutls             #
-    ########################################
+    # ---------------------------------------------------------
+    # Plot Resutls
+    # ---------------------------------------------------------
     def render_image_with_mask(self, image, results):
         """
         Combines the raw image with mask and bounding box overlays
@@ -198,67 +201,48 @@ class ModelManager:
         return plot_results(image, results)
 
 
-    ########################################
-    #          Save Results to CSV         #
-    ########################################
-    def save_results_to_csv(self, out_dict, imgs_paths, header):
+    # ---------------------------------------------------------
+    # Save Results to CSV
+    # ---------------------------------------------------------
+    def save_rows_to_csv(self, rows: List[Dict[str, Any]], header: List[str]):
         """
-        Saves the bulk-inference results into a CSV file
-
-        UI should call this explicitly if needed
+        Saves a list of per-image row dicts into a CSV file
         """
-        if not imgs_paths:
+        if not rows:
             return
 
-        first_path = Path(imgs_paths[0])
-        _save_to_csv(first_path, out_dict, header)
+        _save_rows_to_csv(rows, header)
 
 
-    def save_single_image(self, img_path, page_outputs, correctness_label, header):
+    def save_results_to_csv(self, rows, header):
+        """
+        Backwards-compatible wrapper for saving rows to CSV
+        """
+        self.save_rows_to_csv(rows, header)
+
+
+    def save_single_image(self, img_path, num_pages, page_outputs, correctness_label, header):
         """
         Saves segmentation results for one image into the CSV file.
         This is used by the UI when the user labels image-by-image.
 
-        :param img_path: Path to the image being saved
-        :param output: The model output dictionary (scores, boxes, masks, etc.)
+        :param img_path: Path to the image being saved realative to the csv
+        :param num_pages: Number of pages of the current image
+        :param page_outputs: The model output dictionary (scores, boxes, masks, etc.) of all pages
         :param correctness_label: "correct", "incorrect", or "discard" depending on UI selection
         :param header: CSV header list defining output order
-        """
-        # Iterate over pages
-        page_masks = []
-        page_bboxes = []
-        missing_ouput = False
-        for page_idx in sorted(page_outputs.keys()):
-            output = page_outputs[page_idx]
-
-            # No detections in this page
-            if len(output["scores"]) == 0:
-                page_masks.append("[]")
-                page_bboxes.append("[]")
-                missing_ouput = True
-                continue
-
-            # Masks for this page
-            page_mask_str = _masks_to_polygon_string(output["masks"])
-            page_bbox_str = find_bigbbox(output["boxes"])
-
-            page_masks.append(page_mask_str)
-            page_bboxes.append(page_bbox_str)
-
-        # Set to discard if there is a miss in detection
-        if missing_ouput:
-            correctness_label = "discard"
-
-        # Build output dict for ONE row
-        out_dict = {key: [] for key in header if key not in {"csv_abspath", "csv_rel_img_path"}}
-        out_dict["image_abspath"].append(img_path)
-        out_dict["mask_rle"].append(f"[{','.join(page_masks)}]")
-        out_dict["mask_bbox"].append(f"[{','.join(page_bboxes)}]")
-        out_dict["status"].append(correctness_label)
+        """       
+        # Build dictionary for 1 row (1 image)
+        one_row_dict = _build_row_dict(
+            image_path=img_path,
+            num_pages=num_pages,
+            page_outputs=page_outputs,
+            status_label=correctness_label,
+            header=header,
+        )
 
         # Save row
-        _save_to_csv(Path(img_path), out_dict, header)
-
+        self.save_rows_to_csv([one_row_dict], header)
 
 
 # ------------------------------------------------------------------------------------------------ #
@@ -277,7 +261,7 @@ def _box_xywh_to_cxcywh(box_xywh):
     cy = y + h / 2
     return torch.stack([cx, cy, w, h], dim=-1)
 
-
+# ---------------------------------------------------------
 def _normalize_bbox(box_cxcywh, width, height):
     """
     Normalizes bbox from absolute pixel coords to [0,1] range
@@ -296,3 +280,100 @@ def _normalize_bbox(box_cxcywh, width, height):
     h = h / height
 
     return torch.stack([cx, cy, w, h], dim=-1)
+
+# ---------------------------------------------------------
+def _get_page_output(page_outputs, page_idx: int):
+    """
+    Fetches the model output for a given page index from dict or list inputs.
+    """
+    if isinstance(page_outputs, dict):
+        return page_outputs.get(page_idx)
+    if isinstance(page_outputs, list):
+        if 0 <= page_idx < len(page_outputs):
+            return page_outputs[page_idx]
+    return None
+
+
+# ---------------------------------------------------------
+def _big_bbox_xywh(boxes):
+    """
+    Computes a single XYWH bbox that encloses all boxes.
+    """
+    if boxes is None or len(boxes) == 0:
+        return None
+
+    boxes_tensor = torch.stack([torch.tensor(b) if not isinstance(b, torch.Tensor) else b for b in boxes])
+    x_mins = boxes_tensor[:, 0]
+    y_mins = boxes_tensor[:, 1]
+    x_maxs = boxes_tensor[:, 2]
+    y_maxs = boxes_tensor[:, 3]
+
+    big_x = torch.min(x_mins).item()
+    big_y = torch.min(y_mins).item()
+    big_w = torch.max(x_maxs).item() - big_x
+    big_h = torch.max(y_maxs).item() - big_y
+
+    return [big_x, big_y, big_w, big_h]
+
+
+# ---------------------------------------------------------
+def _format_bbox_str(bbox_xywh):
+    """
+    Formats a bbox list into the CSV string representation.
+    """
+    if not bbox_xywh:
+        return "[]"
+    return "[" + ",".join(f"{point:.4f}" for point in bbox_xywh) + "]"
+
+
+# ---------------------------------------------------------
+def _build_row_dict(image_path, num_pages: int, page_outputs, status_label: str, header: list[str]) -> dict:
+    """
+    Given everything known about one image, produce exactly one CSV-ready row dictionary.
+    """
+    row: Dict[str, Any] = {}
+    header_set = set(header)
+    img_path_str = str(image_path)
+
+    # Store absolute path first; it gets converted to relative at save-time.
+    if "fileName" in header_set:
+        row["fileName"] = img_path_str
+
+    for page_idx in range(num_pages):
+        output = _get_page_output(page_outputs, page_idx)
+
+        if output is not None and "scores" in output and len(output["scores"]) > 0:
+            mask_str_page = masks_to_polygon_string(output["masks"])
+            bbox_xywh = _big_bbox_xywh(output["boxes"])
+        else:
+            mask_str_page = "[[]]"
+            bbox_xywh = None
+        bbox_str = _format_bbox_str(bbox_xywh)
+
+        mask_key = f"mask{page_idx}"
+        bbox_key = f"bbox{page_idx}"
+        if mask_key in header_set:
+            row[mask_key] = mask_str_page
+        if f"Mask{page_idx}" in header_set:
+            row[f"Mask{page_idx}"] = mask_str_page
+        if bbox_key in header_set:
+            row[bbox_key] = bbox_str
+        if bbox_xywh is not None:
+            zoom_x, zoom_y, zoom_w, zoom_h = (round(v, 4) for v in bbox_xywh)
+        else:
+            zoom_x = zoom_y = zoom_w = zoom_h = None
+        if f"ZoomX{page_idx}" in header_set:
+            row[f"ZoomX{page_idx}"] = zoom_x
+        if f"ZoomY{page_idx}" in header_set:
+            row[f"ZoomY{page_idx}"] = zoom_y
+        if f"ZoomWidth{page_idx}" in header_set:
+            row[f"ZoomWidth{page_idx}"] = zoom_w
+        if f"ZoomHeight{page_idx}" in header_set:
+            row[f"ZoomHeight{page_idx}"] = zoom_h
+        if f"ZooomHeight{page_idx}" in header_set:
+            row[f"ZooomHeight{page_idx}"] = zoom_h
+
+    if "status" in header_set:
+        row["status"] = status_label
+
+    return row

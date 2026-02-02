@@ -81,9 +81,15 @@ def data_path_to_img_paths(data_path: Path, data_type: str | None):
     imgs_paths = []
     # If we are working with a csv file
     if data_type == "csv":
-        df = pd.read_csv(data_path)
-        df_filt = df[df["status"].isin(["2", "3"])]
-        imgs_paths = df_filt["image_path"].tolist()
+        df = read_csv_with_sep(data_path)
+        # fileName is stored relative to the CSV location
+        imgs_paths = []
+        for rel_path in df["fileName"].dropna().tolist():
+            rel_path = Path(rel_path)
+            if rel_path.is_absolute():
+                imgs_paths.append(str(rel_path))
+            else:
+                imgs_paths.append(str((data_path.parent / rel_path).resolve()))
 
         # Remove duplicates while preserving order
         imgs_paths = list(dict.fromkeys(imgs_paths))
@@ -131,6 +137,122 @@ def filter_existing_pages(pages_to_label: list[int], num_pages: int):
 
 
 # ---------------------------------------------------------
+# CSV Helpers
+# ---------------------------------------------------------
+def ensure_csv_sep_line(csv_path: Path, sep: str = ";") -> None:
+    """
+    Ensures the first row of the CSV is the Excel separator hint.
+    """
+    if not csv_path.exists():
+        return
+
+    with open(csv_path, "r", encoding="utf-8") as f:
+        first_line = f.readline()
+        rest = f.read()
+
+    sep_line = f"sep={sep}"
+    if first_line.strip() == sep_line:
+        return
+
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        f.write(sep_line + "\n")
+        f.write(first_line)
+        f.write(rest)
+
+
+# ---------------------------------------------------------
+def read_csv_with_sep(csv_path: Path, sep: str = ";") -> pd.DataFrame:
+    """
+    Reads a CSV, adding the sep row if missing.
+    """
+    ensure_csv_sep_line(csv_path, sep=sep)
+    with open(csv_path, "r", encoding="utf-8") as f:
+        first_line = f.readline()
+    if first_line.strip() == f"sep={sep}":
+        return pd.read_csv(csv_path, sep=sep, skiprows=1)
+    return pd.read_csv(csv_path, sep=sep)
+
+
+# ---------------------------------------------------------
+def write_csv_with_sep(df: pd.DataFrame, csv_path: Path, sep: str = ";") -> None:
+    """
+    Writes a CSV with the separator hint as the first row.
+    """
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        f.write(f"sep={sep}\n")
+        df.to_csv(f, index=False, sep=sep)
+
+
+# ---------------------------------------------------------
+# Header + Page Utilities
+# ---------------------------------------------------------
+def get_num_pages(image_path: str) -> int:
+    """
+    Gets the number of pages/frames in an image file.
+    """
+    with Image.open(image_path) as img:
+        return getattr(img, "n_frames", 1)
+
+
+# ---------------------------------------------------------
+def build_header_for_pages(num_pages: int) -> list[str]:
+    """
+    Builds the CSV header with per-page zoom/mask columns.
+    """
+    base_cols = ["fileName", "status"]
+    zoom_cols = []
+    mask_cols = []
+    for i in range(num_pages):
+        zoom_cols.extend([f"ZoomX{i}", f"ZoomY{i}", f"ZoomWidth{i}", f"ZooomHeight{i}"])
+        mask_cols.append(f"Mask{i}")
+    return base_cols + zoom_cols + mask_cols
+
+
+# ---------------------------------------------------------
+def update_header_for_pages(header: list[str], num_pages: int) -> None:
+    """
+    Updates the header in-place for a given page count.
+    """
+    header[:] = build_header_for_pages(num_pages)
+
+
+# ---------------------------------------------------------
+def init_header_from_first_image(paths: list[str], header: list[str]) -> int:
+    """
+    Initializes the header using the first image in the list.
+    """
+    num_pages = get_num_pages(paths[0])
+    update_header_for_pages(header, num_pages)
+    return num_pages
+
+
+# ---------------------------------------------------------
+def filter_paths_by_num_pages(paths: list[str], expected_num_pages: int | None) -> list[str]:
+    """
+    Keeps only images with the expected number of pages.
+    """
+    if expected_num_pages is None:
+        return paths
+    filtered = []
+    for p in paths:
+        try:
+            num_pages = get_num_pages(p)
+        except Exception:
+            continue
+
+        if num_pages != expected_num_pages:
+            print(
+                f"[WARNING]: Image {p} has {num_pages} instead of {expected_num_pages} "
+                "it might correspond toa different dataset."
+            )
+            continue
+
+        filtered.append(p)
+
+    return filtered
+
+
+# ---------------------------------------------------------
 # Create/Update & Save the CSV
 # ---------------------------------------------------------
 def _save_to_csv(image_path: Path, out_dict: dict, header: list[str]):
@@ -150,75 +272,134 @@ def _save_to_csv(image_path: Path, out_dict: dict, header: list[str]):
     # Convert dict to DataFrame
     df_new = pd.DataFrame(out_dict)
 
-    # Compute relative path safely
-    try:
-        csv_rel_img_path = csv_path.relative_to(image_path.parent)
-    except ValueError:
-        # If not relative, compute a different way
-        csv_rel_img_path = os.path.relpath(csv_path, image_path.parent)
-
-    # Add csv_abspath & csv_rel_img_path to the row dict
-    df_new["csv_abspath"] = str(csv_path)
-    df_new["csv_rel_img_path"] = str(csv_rel_img_path)
+    # Keep fileName relative to the CSV location
+    if "fileName" in df_new.columns:
+        df_new["fileName"] = df_new["fileName"].apply(
+            lambda p: os.path.relpath(p, csv_path.parent) if p else p
+        )
 
     # Order columns
     df_new = df_new[header]
 
     if not csv_path.exists():
-        df_new.to_csv(csv_path, index=False, sep=";")
+        write_csv_with_sep(df_new, csv_path)
         return
 
     # Load old CSV
-    df_old = pd.read_csv(csv_path, sep=";")
+    df_old = read_csv_with_sep(csv_path)
 
-    if "image_abspath" in df_old.columns:
-        df_old = df_old[~df_old["image_abspath"].isin(df_new["image_abspath"])]
+    if "fileName" in df_old.columns:
+        df_old = df_old[~df_old["fileName"].isin(df_new["fileName"])]
 
     # Concatenate old + new rows
     df_final = pd.concat([df_old, df_new], ignore_index=True)
 
     # Save back to disk
-    df_final.to_csv(csv_path, index=False, sep=";")
+    write_csv_with_sep(df_final, csv_path)
 
+
+# ---------------------------------------------------------
+# Save Rows to CSV
+# ---------------------------------------------------------
+def _save_rows_to_csv(rows: list[dict], header: list[str]):
+    """
+    Create or update CSV file and save it from row dictionaries
+
+    :param rows: List of row dictionaries (one per image)
+    :param header: Ordered list of CSV columns
+    """
+    if not rows:
+        return
+
+    # Decide CSV location based on the first row's fileName (expected absolute)
+    first_row = rows[0]
+    image_path = None
+    if first_row.get("fileName"):
+        image_path = Path(first_row["fileName"])
+
+    if image_path is None:
+        raise ValueError("Rows must include fileName to resolve CSV path.")
+
+    # Output CSV lives next to the images by default
+    subfolder = False
+    if subfolder:
+        csv_path = image_path.parent.parent / "output.csv"
+    else:
+        csv_path = image_path.parent / "output.csv"
+
+    # Ensure csv path columns are set without mutating input rows
+    rows_out = []
+    for row in rows:
+        row_out = dict(row)
+        if "fileName" in header:
+            # Store fileName relative to the CSV location
+            abs_img_path = row.get("fileName")
+            if abs_img_path:
+                row_out["fileName"] = os.path.relpath(abs_img_path, csv_path.parent)
+        rows_out.append(row_out)
+
+    # Convert rows to DataFrame
+    df_new = pd.DataFrame(rows_out)
+
+    # Ensure all header columns exist
+    for col in header:
+        if col not in df_new.columns:
+            df_new[col] = None
+
+    # Order columns
+    df_new = df_new[header]
+
+    if not csv_path.exists():
+        write_csv_with_sep(df_new, csv_path)
+        return
+
+    # Load old CSV
+    df_old = read_csv_with_sep(csv_path)
+
+    if "fileName" in df_old.columns and "fileName" in df_new.columns:
+        df_old = df_old[~df_old["fileName"].isin(df_new["fileName"])]
+
+    # Concatenate old + new rows
+    df_final = pd.concat([df_old, df_new], ignore_index=True)
+
+    # Save back to disk
+    write_csv_with_sep(df_final, csv_path)
 
 # ---------------------------------------------------------
 # Transform Masks to Polygon String
 # ---------------------------------------------------------
-def page_outputs_to_polygon_string():
-    return
-
-
-def _masks_to_polygon_string(masks):
+def masks_to_polygon_string(masks):
     """
-    Convert a list/array/tensor of binary masks [N,H,W]
-    into a nested polygon string: [[{X:[..],Y:[..]}],[{..}]]
+    Convert masks [N, H, W] of ONE PAGE into:
+    [
+        [ {X:[],Y:[]}, {X:[],Y:[]} ],   # mask of object1
+        [ {X:[],Y:[]} ]                 # mask of object2
+    ]
 
     :param masks: Output masks of the model
     """
-    # Loop for each page / region
-    page_masks = []
+    # Loop thourhg all masks of 1 page
+    mask_strings = []
     for i in range(len(masks)):
-        # Convert mask to numpy
         mask_np = torch.squeeze(masks[i]).detach().cpu().numpy()
         mask_np = (mask_np > 0).astype(np.uint8)
 
-        # Find contours
-        contours, _ = cv2.findContours(mask_np.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE) # pyright: ignore[reportAttributeAccessIssue]
+        contours, _ = cv2.findContours(mask_np.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)  # pyright: ignore[reportAttributeAccessIssue]
 
-        # Store each contour formatted as {X:[...], Y:[...]}
-        mask_contours = []
+        contour_strings = []
         for cnt in contours:
             pts = cnt.reshape(-1, 2)
             xs = ",".join(_fmt(x) for x in pts[:, 0])
             ys = ",".join(_fmt(y) for y in pts[:, 1])
-            mask_contours.append(f"{{X:{xs},Y:{ys}}}")
+            contour_strings.append(f"{{X:[{xs}],Y:[{ys}]}}")
 
-        page_masks.append(f"[{','.join(mask_contours)}]")
-    
-    # One page finished
-    return f"[{','.join(page_masks)}]"
+        # One mask = list of polygons
+        mask_strings.append(f"[{','.join(contour_strings)}]")
 
+    # The page masks into polygon strings
+    return f"[{','.join(mask_strings)}]"
 
+# ---------------------------------------------------------
 def _fmt(v: float) -> str:
     """
     Compact float formatting for memory efficiency
@@ -236,18 +417,6 @@ def _fmt(v: float) -> str:
     ret = s[1:] if s.startswith("0.") else s
     
     return ret
-
-# ---------------------------------------------------------
-# Transfor Polygon String Pages into Full tiff string
-# ---------------------------------------------------------
-def polygos_pages_to_tiff(page_polygons: dict[int, str]) -> str:
-    """
-    Join per-page polygon strings into a TIFF-level polygon string
-
-    :param page_polygons: {page_index: "[{X:..,Y:..}]"}
-    """
-    pages = [page_polygons[k] for k in sorted(page_polygons)]
-    return f"[{','.join(pages)}]"
 
 
 # ---------------------------------------------------------
