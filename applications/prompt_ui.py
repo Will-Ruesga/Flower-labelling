@@ -1,21 +1,27 @@
 import tkinter as tk
 
 from PIL import Image, ImageTk
+from typing import Dict, Optional, Any
 from tkinter import ttk
 from pathlib import Path
-from typing import Dict, Optional, Any
 
 from model_manager import ModelManager
-from img_pred_utils import update_header_for_pages, filter_paths_by_num_pages
+from utils.data_utils import save_rows_to_csv
+from utils.plot_utils import render_image_with_mask
+from utils.image_utils import update_header_for_pages, filter_paths_by_num_pages
+from utils.parsing_utils import build_row_dict
 
 # Defines
 BTN_WIDTH = 12
 BTN_HEIGHT = 1
 
 
-# ---------------------------------------------------------
-# Prompt Class UI
-# ---------------------------------------------------------
+
+
+
+# =================================================================================================
+#                                           PROMPT UI CLASS
+# =================================================================================================
 class PromptUI:
     def __init__(self, processor, imgs_paths: list, header: list[str], pages_to_label: list[int] = [0]):
         """
@@ -124,9 +130,9 @@ class PromptUI:
         self._build_image_display()
 
         # Add frames to the UI
-        self._build_status_bar()
         self._prompt_text_box()
         self._mask_input_buttons()
+        self._build_status_bar()
         self._mask_generate_buttons()
         self._decision_buttons()
 
@@ -137,6 +143,12 @@ class PromptUI:
         self.root.mainloop()
 
 
+
+
+
+# =================================================================================================
+#                                               UI LAYOUT
+# =================================================================================================
     # ---------------------------------------------------------
     # ROW 0-7, COL 0-3: Image Display
     # ---------------------------------------------------------
@@ -260,6 +272,74 @@ class PromptUI:
 
 
     # ---------------------------------------------------------
+    # ROW 9-10, COL 0: Mask Input Buttons
+    # ---------------------------------------------------------
+    def _mask_input_buttons(self):
+        """
+        Creates two toggle buttons to control the type of output masks
+        - Single -> Single mask output
+        - Multiple -> Multiple masks output
+        """
+        # Frame for mask generation buttons
+        input_buttons_frame = tk.LabelFrame(self.root, text="Input", font=("Arial", 10), relief="solid", bd=1)
+        input_buttons_frame.grid(row=9, column=0, rowspan=1, columnspan=1, padx=5, pady=5, sticky="nsew")
+
+        # Add importance to grid frame for good spacing
+        input_buttons_frame.grid_columnconfigure(0, weight=1)
+        for r in range(3):
+            input_buttons_frame.columnconfigure(r, weight=1)
+
+        # --- Toggle Buttons --- #
+        # Single Mask Toggle
+        self.single_mask_tgl = self._make_button(
+            input_buttons_frame,
+            text="Single Mask",
+            command=lambda:self._set_single_multiple_mode("single")
+        )
+        self.single_mask_tgl.grid(row=0, column=0, pady=5)
+
+        # Multiple Masks Toggle
+        self.multiple_mask_tgl = self._make_button(
+            input_buttons_frame,
+            text="Multiple Masks",
+            command=lambda:self._set_single_multiple_mode("multiple")
+        )
+        self.multiple_mask_tgl.grid(row=0, column=1, pady=5)
+
+        # BBox toggle button
+        self.bbox_btn = self._make_button(
+            input_buttons_frame,
+            text="BBox: OFF",
+            command=self._toggle_bbox_mode
+        )
+        self.bbox_btn.grid(row=0, column=2, pady=5)
+
+    
+    # ---------------------------------------------------------
+    # ROW 11, COL 0: Progress Bar
+    # ---------------------------------------------------------
+    def _build_status_bar(self):
+        """
+        Builds the bottom status bar containing the error label and progress bar.
+        Called once during UI setup.
+        """
+        self.status_frame = tk.Frame(self.root)
+        self.status_frame.grid(row=11, column=0, columnspan=3, sticky="ew", pady=5)
+
+        # Error label
+        self.error_label = tk.Label(self.status_frame, text="", font=("Arial", 12, "bold"), fg="red")
+        self.error_label.grid(row=0, column=1, sticky="e", padx=20)
+
+        # Progress bar (very small)
+        self.progress = ttk.Progressbar(self.status_frame, orient="horizontal", mode="determinate",length=200)
+        self.progress.grid(row=0, column=0, sticky="w", padx=10)
+
+        # Set max steps
+        self.progress["maximum"] = len(self.imgs_paths)
+        self._update_progress()
+
+
+    # ---------------------------------------------------------
     # ROW 8-10, COL 1: Mask Gen Buttons
     # ---------------------------------------------------------
     def _mask_generate_buttons(self):
@@ -299,54 +379,10 @@ class PromptUI:
         label_rest_btn = self._make_button(
             gen_buttons_frame,
             text="Label Dataset",
-            command=self._on_label_dataset,
+            command=self._on_label_remaining_images,
             highlight="black"
         )
         label_rest_btn.grid(row=2, column=0, padx=10, pady=10)
-
-
-    # ---------------------------------------------------------
-    # ROW 9-10, COL 0: Mask Input Buttons
-    # ---------------------------------------------------------
-    def _mask_input_buttons(self):
-        """
-        Creates two toggle buttons to control the type of output masks
-        - Single -> Single mask output
-        - Multiple -> Multiple masks output
-        """
-        # Frame for mask generation buttons
-        input_buttons_frame = tk.LabelFrame(self.root, text="Input", font=("Arial", 10), relief="solid", bd=1)
-        input_buttons_frame.grid(row=9, column=0, rowspan=1, columnspan=1, padx=5, pady=5, sticky="nsew")
-
-        # Add importance to grid frame for good spacing
-        input_buttons_frame.grid_columnconfigure(0, weight=1)
-        for r in range(3):
-            input_buttons_frame.columnconfigure(r, weight=1)
-
-        # --- Toggle Buttons --- #
-        # Single Mask Toggle
-        self.single_mask_tgl = self._make_button(
-            input_buttons_frame,
-            text="Single Mask",
-            command=lambda:self._set_generation_mode("single")
-        )
-        self.single_mask_tgl.grid(row=0, column=0, pady=5)
-
-        # Multiple Masks Toggle
-        self.multiple_mask_tgl = self._make_button(
-            input_buttons_frame,
-            text="Multiple Masks",
-            command=lambda:self._set_generation_mode("multiple")
-        )
-        self.multiple_mask_tgl.grid(row=0, column=1, pady=5)
-
-        # BBox toggle button
-        self.bbox_btn = self._make_button(
-            input_buttons_frame,
-            text="BBox: OFF",
-            command=self._toggle_bbox_mode
-        )
-        self.bbox_btn.grid(row=0, column=2, pady=5)
 
 
     # ---------------------------------------------------------
@@ -391,27 +427,15 @@ class PromptUI:
         )
         discard_btn.grid(row=2, column=0, padx=10, pady=10)
 
+
+
+
+
+# =================================================================================================
+#                                    WIDGET INNPUT FUNCTIONS
+# =================================================================================================
     # ---------------------------------------------------------
-    def _build_status_bar(self):
-        """
-        Builds the bottom status bar containing the error label and progress bar.
-        Called once during UI setup.
-        """
-        self.status_frame = tk.Frame(self.root)
-        self.status_frame.grid(row=11, column=0, columnspan=3, sticky="ew", pady=5)
-
-        # Error label
-        self.error_label = tk.Label(self.status_frame, text="", font=("Arial", 12, "bold"), fg="red")
-        self.error_label.grid(row=0, column=1, sticky="e", padx=20)
-
-        # Progress bar (very small)
-        self.progress = ttk.Progressbar(self.status_frame, orient="horizontal", mode="determinate",length=200)
-        self.progress.grid(row=0, column=0, sticky="w", padx=10)
-
-        # Set max steps
-        self.progress["maximum"] = len(self.imgs_paths)
-        self._update_progress()
-
+    # Change Page Button Action
     # ---------------------------------------------------------
     def _on_change_page(self, step: int):
         """
@@ -428,228 +452,21 @@ class PromptUI:
             self.current_page_index = valid_pages[new_idx]
             self._show_page()
 
-    # ---------------------------------------------------------
-    def _on_generate_mask(self):
-        """
-        Action function called when the button Generate Mask is clicked
-        Checks the correctness of the input data given by the user
-        - Correct data -> Calls the model to predict masks with the input & prints the mask overlay
-        - Incorrect data -> Calls the _print_error function
-        """
-        assert self.prompt_text is not None
-
-        # Clear errors
-        self._update_error()
-
-        # Get data
-        prompt = self.prompt_text.get("1.0", "end-1c")
-
-        # --- Check data correctness --- #
-        # Check prompt is not empty
-        if not prompt:
-            self._update_error("Prompt cannot be empty!")
-            return
-
-        # Check a mask has been generated
-        if self.generation_mode is None:
-            self._update_error("Select an output type! -> ('Single Mask' or 'Multiple Masks')")
-            return
-
-        # --- Run model on current image --- #
-        if self.current_image is None:
-            self._update_error("No image loaded")
-            return
-        pil_page = self._get_page(self.current_page_index)
-
-        # Save page model output
-        output = self.model_manager.run_model(pil_page, prompt, self.generation_mode, bbox=self.bbox)
-        self.page_outputs[self.current_page_index] = output
-
-        # Render & Display mask overlay
-        self._show_page()
 
     # ---------------------------------------------------------
-    def _on_label_image(self):
+    # Toggle Selection for Single/Multiple Mask
+    # ---------------------------------------------------------
+    def _set_single_multiple_mode(self, mode: str):
         """
-        Generates masks for all pages of the current image using the current prompt.
+        Set generation mode and update toggle button visuals
+
+        :param mode: "single" or "multiple"
         """
-        assert self.prompt_text is not None
-
-        # Clear errors
-        self._update_error()
-
-        # Get data
-        prompt = self.prompt_text.get("1.0", "end-1c")
-
-        # --- Check data correctness --- #
-        if not prompt:
-            self._update_error("Prompt cannot be empty!")
-            return
-        if self.generation_mode is None:
-            self._update_error("Select an output type! -> ('Single Mask' or 'Multiple Masks')")
-            return
-        if self.current_image is None:
-            self._update_error("No image loaded")
-            return
-
-        # --- Run model on all pages of the current image --- #
-        img_path = self.imgs_paths[self.current_img_index]
-        page_outputs, _, _ = self.model_manager._process_image(
-            img_path=img_path,
-            prompt=prompt,
-            mask_output_type=self.generation_mode,
-        )
-
-        # Update only the pages we are working on
-        for page_idx in self.valid_pages_to_label:
-            self.page_outputs[page_idx] = page_outputs.get(page_idx)
-
-        # Refresh overlay for current page
-        self._show_page()
+        self.generation_mode = mode
+        self._update_single_multiple_toggle()
 
     # ---------------------------------------------------------
-    def _on_submit_decision(self, status_value):
-        """
-        Action function called when the buttons Correct, Incorrect or Discard are clicked
-        Checks for a generated mask
-        - Mask generated -> Decides what to do with the mask based on status_value and passes to the next image
-        - Mask not generated -> Calls the _print_error function
-
-        :param status_value: determines the status os the mask values are -> 'correct', 'incorrect' or 'discarded'
-        """
-        # Clear errors
-        self._update_error()
-
-        # --- Check data correctness --- #
-        # Check mask has been generated for every page
-        for vp in self.valid_pages_to_label:
-            if self.page_outputs[vp] is None and status_value != "discard":
-                self._update_error("Please generate the mask in all pages before submitting")
-                return
-
-        # --- Save current image (all pages) to CSV --- #
-        self.model_manager.save_single_image(
-            img_path=self.imgs_paths[self.current_img_index],
-            num_pages=self.num_pages,
-            page_outputs=self.page_outputs,
-            correctness_label=status_value,
-            header=self.header
-        )
-        # Clear pages
-        self.page_outputs = {p: None for p in self.valid_pages_to_label}
-
-        # --- Pass to next image --- #
-        # If this is the last image, close the window
-        if self.current_img_index >= len(self.imgs_paths) - 1:
-            self._update_error("Finished!")
-            self.root.destroy()
-            return
-
-        self.current_img_index += 1
-        self._load_image(self.current_img_index)    # Show next image
-        self._update_progress()                     # Update progress bar
-
-    # ---------------------------------------------------------
-    def _on_label_dataset(self):
-        """
-        Handle labeling of the remaining images starting from the current index
-
-        Validates the user prompt and generation mode, then runs the model
-        in bulk on all remaining images before closing the UI
-        """
-        assert self.prompt_text is not None
-
-        # Clear errors
-        self._update_error()
-
-        # Get data
-        prompt = self.prompt_text.get("1.0", "end-1c")
-
-        # --- Check data correctness --- #
-        # Check prompt is not empty
-        if not prompt:
-            self._update_error("Prompt cannot be empty")
-            return
-
-        # Check a mask has been generated
-        if self.generation_mode is None:
-            self._update_error("Select an output type! -> ('Single Mask' or 'Multiple Masks')")
-            return
-
-        # --- Run model in bulk for the rest of the images --- #
-        remaining_paths = self.imgs_paths[self.current_img_index:]
-        remaining_paths = filter_paths_by_num_pages(remaining_paths, self.expected_num_pages)
-        if not remaining_paths:
-            self.root.destroy()
-            return
-
-        rows = self.model_manager.run_model_bulk(remaining_paths, prompt, self.header, self.generation_mode)
-        self.model_manager.save_rows_to_csv(rows, self.header)
-
-        # Close UI after processing
-        self.root.destroy()
-
-
-# ------------------------------------------------------------------------------------------------ #
-#                                         HELPER FUNCTIONS                                         #
-# ------------------------------------------------------------------------------------------------ #
-    def _update_error(self, msg=""):
-        """
-        Updates the error message in the status bar
-
-        :param msg (str): Error message string
-        """
-        assert self.error_label is not None
-        assert self.progress is not None
-
-        self.error_label.config(text=msg)
-
-    # ---------------------------------------------------------
-    def _update_progress(self):
-        """
-        Updates the progress bar based on current image index
-        """
-        assert self.error_label is not None
-        assert self.progress is not None
-
-        self.progress["value"] = self.current_img_index
-
-    def _prepare_image_pages(self, pil_img):
-        """
-        Given an image prepare the pages
-
-        :param pil_img: PIL Image that we are currently on
-        :retrun: the valid pages of such image
-        """
-        num_pages = getattr(pil_img, "n_frames", 1)
-        pages = [p for p in self.pages_to_label if 0 <= p < num_pages]
-        return pages, num_pages
-
-    def _init_page_outputs(self, valid_pages: list[int]) -> None:
-        """
-        Initalize the page outputs dict
-
-        :param valid_pages: Valid pages to label of this image
-        """
-        self.page_outputs = {p: None for p in valid_pages}
-
-    # ---------------------------------------------------------
-    def _make_button(self, parent, *, text, command, highlight=None):
-        """
-        Creates a tkinter button
-
-        :param parent: Parent frame to where the button is placed
-        :param text: Text of the button
-        :param command: Command activated by pressing the button
-        :param highlight: Color of the button highlight (default false)
-        """
-        btn = tk.Button(parent, text=text, command=command, **self.common_kwargs)
-        if highlight:
-            btn.config(highlightbackground=highlight, highlightthickness=2)
-        return btn
-
-    # ---------------------------------------------------------
-    def _update_generation_toggle(self):
+    def _update_single_multiple_toggle(self):
         """
         Update visual state of generation mode toggle buttons
         """
@@ -663,16 +480,9 @@ class PromptUI:
             self.single_mask_tgl.config(relief="raised", bg=self.default_btn_bg)
             self.multiple_mask_tgl.config(relief="sunken", bg="#d0f0d0")
 
+
     # ---------------------------------------------------------
-    def _set_generation_mode(self, mode: str):
-        """
-        Set generation mode and update toggle button visuals
-
-        :param mode: "single" or "multiple"
-        """
-        self.generation_mode = mode
-        self._update_generation_toggle()
-
+    # Bounding Box Functions
     # ---------------------------------------------------------
     def _toggle_bbox_mode(self):
         """
@@ -774,6 +584,248 @@ class PromptUI:
         self.bbox = (ox0, oy0, ox1, oy1)
         self.bbox_start = None
 
+
+
+
+
+# =================================================================================================
+#                                   WIDGET OUTPUT FUNCTINOS
+# =================================================================================================
+    # ---------------------------------------------------------
+    # Label Page Button Action
+    # ---------------------------------------------------------
+    def _on_generate_mask(self):
+        """
+        Action function called when the button Generate Mask is clicked
+        Checks the correctness of the input data given by the user
+        - Correct data -> Calls the model to predict masks with the input & prints the mask overlay
+        - Incorrect data -> Calls the _print_error function
+        """
+        assert self.prompt_text is not None
+
+        # Clear errors
+        self._update_error()
+
+        # Get data
+        prompt = self.prompt_text.get("1.0", "end-1c")
+
+        # --- Check data correctness --- #
+        # Check prompt is not empty
+        if not prompt:
+            self._update_error("Prompt cannot be empty!")
+            return
+
+        # Check a mask has been generated
+        if self.generation_mode is None:
+            self._update_error("Select an output type! -> ('Single Mask' or 'Multiple Masks')")
+            return
+
+        # --- Run model on current image --- #
+        if self.current_image is None:
+            self._update_error("No image loaded")
+            return
+        pil_page = self._get_page(self.current_page_index)
+
+        # Save page model output
+        output = self.model_manager.run_model(pil_page, prompt, self.generation_mode, bbox=self.bbox)
+        self.page_outputs[self.current_page_index] = output
+
+        # Render & Display mask overlay
+        self._show_page()
+
+    # ---------------------------------------------------------
+    # Label All Image Button Action
+    # ---------------------------------------------------------
+    def _on_label_image(self):
+        """
+        Generates masks for all pages of the current image using the current prompt.
+        """
+        assert self.prompt_text is not None
+
+        # Clear errors
+        self._update_error()
+
+        # Get data
+        prompt = self.prompt_text.get("1.0", "end-1c")
+
+        # --- Check data correctness --- #
+        if not prompt:
+            self._update_error("Prompt cannot be empty!")
+            return
+        if self.generation_mode is None:
+            self._update_error("Select an output type! -> ('Single Mask' or 'Multiple Masks')")
+            return
+        if self.current_image is None:
+            self._update_error("No image loaded")
+            return
+
+        # --- Run model on all pages of the current image --- #
+        img_path = self.imgs_paths[self.current_img_index]
+        page_outputs, _, _ = self.model_manager._process_image(
+            img_path=img_path,
+            prompt=prompt,
+            mask_output_type=self.generation_mode,
+        )
+
+        # Update only the pages we are working on
+        for page_idx in self.valid_pages_to_label:
+            self.page_outputs[page_idx] = page_outputs.get(page_idx)
+
+        # Refresh overlay for current page
+        self._show_page()
+
+    # ---------------------------------------------------------
+    # Label Remaining Images Button Action
+    # ---------------------------------------------------------
+    def _on_label_remaining_images(self):
+        """
+        Handle labeling of the remaining images starting from the current index
+
+        Validates the user prompt and generation mode, then runs the model
+        in bulk on all remaining images before closing the UI
+        """
+        assert self.prompt_text is not None
+
+        # Clear errors
+        self._update_error()
+
+        # Get data
+        prompt = self.prompt_text.get("1.0", "end-1c")
+
+        # --- Check data correctness --- #
+        # Check prompt is not empty
+        if not prompt:
+            self._update_error("Prompt cannot be empty")
+            return
+
+        # Check a mask has been generated
+        if self.generation_mode is None:
+            self._update_error("Select an output type! -> ('Single Mask' or 'Multiple Masks')")
+            return
+
+        # --- Run model in bulk for the rest of the images --- #
+        remaining_paths = self.imgs_paths[self.current_img_index:]
+        remaining_paths = filter_paths_by_num_pages(remaining_paths, self.expected_num_pages)
+        if not remaining_paths:
+            self.root.destroy()
+            return
+
+        rows = self.model_manager.run_model_bulk(remaining_paths, prompt, self.header, self.generation_mode)
+        save_rows_to_csv(rows, self.header)
+
+        # Close UI after processing
+        self.root.destroy()
+
+
+    # ---------------------------------------------------------
+    # Submit Decision Button Action
+    # ---------------------------------------------------------
+    def _on_submit_decision(self, status_value):
+        """
+        Action function called when the buttons Correct, Incorrect or Discard are clicked
+        Checks for a generated mask
+        - Mask generated -> Decides what to do with the mask based on status_value and passes to the next image
+        - Mask not generated -> Calls the _print_error function
+
+        :param status_value: determines the status os the mask values are -> 'correct', 'incorrect' or 'discarded'
+        """
+        # Clear errors
+        self._update_error()
+
+        # --- Check data correctness --- #
+        # Check mask has been generated for every page
+        for vp in self.valid_pages_to_label:
+            if self.page_outputs[vp] is None and status_value != "discard":
+                self._update_error("Please generate the mask in all pages before submitting")
+                return
+
+        # --- Save current image (all pages) to CSV --- #
+        row = build_row_dict(
+            image_path=self.imgs_paths[self.current_img_index],
+            num_pages=self.num_pages,
+            page_outputs=self.page_outputs,
+            status_label=status_value,
+            header=self.header,
+        )
+        save_rows_to_csv([row], self.header)
+        # Clear pages
+        self.page_outputs = {p: None for p in self.valid_pages_to_label}
+
+        # --- Pass to next image --- #
+        # If this is the last image, close the window
+        if self.current_img_index >= len(self.imgs_paths) - 1:
+            self._update_error("Finished!")
+            self.root.destroy()
+            return
+
+        self.current_img_index += 1
+        self._load_image(self.current_img_index)    # Show next image
+        self._update_progress()                     # Update progress bar
+
+
+
+
+
+# =================================================================================================
+#                                         HELPER FUNCTIONS
+# =================================================================================================
+    def _update_error(self, msg=""):
+        """
+        Updates the error message in the status bar
+
+        :param msg (str): Error message string
+        """
+        assert self.error_label is not None
+        assert self.progress is not None
+
+        self.error_label.config(text=msg)
+
+    # ---------------------------------------------------------
+    def _update_progress(self):
+        """
+        Updates the progress bar based on current image index
+        """
+        assert self.error_label is not None
+        assert self.progress is not None
+
+        self.progress["value"] = self.current_img_index
+
+    # ---------------------------------------------------------
+    def _prepare_image_pages(self, pil_img):
+        """
+        Given an image prepare the pages
+
+        :param pil_img: PIL Image that we are currently on
+        :retrun: the valid pages of such image
+        """
+        num_pages = getattr(pil_img, "n_frames", 1)
+        pages = [p for p in self.pages_to_label if 0 <= p < num_pages]
+        return pages, num_pages
+
+    # ---------------------------------------------------------
+    def _init_page_outputs(self, valid_pages: list[int]) -> None:
+        """
+        Initalize the page outputs dict
+
+        :param valid_pages: Valid pages to label of this image
+        """
+        self.page_outputs = {p: None for p in valid_pages}
+
+    # ---------------------------------------------------------
+    def _make_button(self, parent, *, text, command, highlight=None):
+        """
+        Creates a tkinter button
+
+        :param parent: Parent frame to where the button is placed
+        :param text: Text of the button
+        :param command: Command activated by pressing the button
+        :param highlight: Color of the button highlight (default false)
+        """
+        btn = tk.Button(parent, text=text, command=command, **self.common_kwargs)
+        if highlight:
+            btn.config(highlightbackground=highlight, highlightthickness=2)
+        return btn
+
     # ---------------------------------------------------------
     def _update_page_label(self):
         """
@@ -821,7 +873,7 @@ class PromptUI:
         # Overlay mask if exists
         output = self.page_outputs.get(page_index)
         if output is not None:
-            pil_page = self.model_manager.render_image_with_mask(pil_page, output)
+            pil_page = render_image_with_mask(pil_page, output)
 
         return pil_page
 

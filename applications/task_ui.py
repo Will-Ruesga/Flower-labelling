@@ -2,11 +2,15 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog
 
-from img_pred_utils import read_csv_with_sep
+from utils.data_utils import read_csv_with_sep
 
-# ---------------------------------------------------------
-# Choose UI Class
-# ---------------------------------------------------------
+
+
+
+
+# =================================================================================================
+#                                           TASK SELECTION UI CLASS
+# =================================================================================================
 class TaskSelectionUI:
     def __init__(self, behaviors):
         # Initialize variables
@@ -140,9 +144,9 @@ class TaskSelectionUI:
         submit_btn.grid(row=5, column=1, padx=50, pady=20, sticky="se")
 
 
-    # ------------------------------------------------------------------------------------------------ #
-    #                                      Button helper functions                                     #
-    # ------------------------------------------------------------------------------------------------ #
+# =================================================================================================
+#                                           BUTTON HELPER FUNCTIONS
+# =================================================================================================
     def _on_submit(self):
         """
         Activation function called when the Submit button is clicked

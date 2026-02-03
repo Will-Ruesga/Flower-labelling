@@ -1,13 +1,20 @@
 from pathlib import Path
-from importlib.resources import files, as_file
 
-from img_pred_utils import load_model, data_path_to_img_paths
 from applications.task_ui import TaskSelectionUI
 from applications.prompt_ui import PromptUI
 from applications.automatic_ui import AutomaticUI
 from applications.page_selection_ui import PageSelectionUI
 
+from utils.plot_utils import load_model
+from utils.data_utils import data_path_to_img_paths
+
+
+# =================================================================================================
+#                                        IMAGE LABELLING TOOL MAIN
+# =================================================================================================
+# ---------------------------------------------------------
 # Defines
+# ---------------------------------------------------------
 NONE_B = "-- Select one"
 AUTO_B = "Automatic labelling"
 PROMPT_B = "Prompt labelling"

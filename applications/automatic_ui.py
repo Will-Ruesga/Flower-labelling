@@ -3,17 +3,14 @@ import tkinter as tk
 from tkinter import ttk
 
 from model_manager import ModelManager
-from img_pred_utils import init_header_from_first_image, filter_paths_by_num_pages
+from utils.image_utils import filter_paths_by_num_pages, init_header_from_first_image
+from utils.data_utils import save_rows_to_csv
 
 
-########################################
-#          Automatic Class UI          #
-########################################
+# =================================================================================================
+#                                       Automatic UI Class
+# =================================================================================================
 class AutomaticUI:
-    # TODO: Make more testing with exceptions
-    # TODO: Make more testing with multiple images
-    # TODO: Re-read code and logic structure
-    
     def __init__(self, processor, imgs_paths: list, header: list[str]):
         """
         :param processor: The model processor
@@ -44,9 +41,6 @@ class AutomaticUI:
         # Create a model manager to keep UI clean
         self.model_manager = ModelManager(self.processor)
 
-        # TODO: add debug grid
-        # TODO: Re-organise cols and rows for better spacing
-
         # Add frames to the UI
         self._prompt_text_box()
         self._mask_output_radio()
@@ -56,9 +50,9 @@ class AutomaticUI:
         self.root.mainloop()
 
 
-    ########################################
-    #  ROW 0, COL 0-1: Text Box for Prompt #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 0, COL 0-1: Text Box for Prompt
+    # ---------------------------------------------------------
     def _prompt_text_box(self):
         """
         Generates a text box where the user can write a small prompt for the model
@@ -81,9 +75,9 @@ class AutomaticUI:
         self.prompt_text.grid(row=1, column=0, padx=10, sticky="ew")
     
 
-    ########################################
-    #ROW 1, COL 0-1: Mult Mask Radio Button#
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 1, COL 0-1: Mult Mask Radio Button
+    # ---------------------------------------------------------
     def _mask_output_radio(self):
         """
         Creates two radio buttons in a row to control the number of output masks
@@ -109,9 +103,9 @@ class AutomaticUI:
         mult_mask_radio.grid(row=1, column=1, padx=20)
 
 
-    ########################################
-    #     ROW 2, COL 0: Error Message    #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 2, COL 0: Error Message
+    # ---------------------------------------------------------
     def _build_status_bar(self):
         """
         Builds the bottom status bar containing the error label and progress bar.
@@ -124,18 +118,10 @@ class AutomaticUI:
         self.error_label = tk.Label(self.status_frame, text="", font=("Arial", 12, "bold"), fg="red")
         self.error_label.grid(row=0, column=1, sticky="e", padx=20)
 
-        # # Progress bar (very small)
-        # self.progress = ttk.Progressbar(self.status_frame, orient="horizontal", mode="determinate",length=200)
-        # self.progress.grid(row=0, column=0, sticky="w", padx=10)
 
-        # # Set max steps
-        # self.progress["maximum"] = len(self.imgs_paths)
-        # self._update_progress()
-
-
-    ########################################
-    #   ROW 3, COL 0: Submit Info Button   #
-    ########################################
+    # ---------------------------------------------------------
+    # ROW 3, COL 0: Submit Info Button
+    # ---------------------------------------------------------
     def _sumbit_info_button(self):
         """
         Creates a button to submit the information
@@ -146,9 +132,9 @@ class AutomaticUI:
         submit_btn.grid(row=3, column=0, columnspan=2, padx=50, pady=20, sticky="s")
 
 
-    # ------------------------------------------------------------------------------------------------ #
-    #                                      Button helper functions                                     #
-    # ------------------------------------------------------------------------------------------------ #
+# =================================================================================================
+#                                      Button helper functions
+# =================================================================================================
     def _on_submit(self):
         """
         Action function called when the button Sumbit is clicked
@@ -193,14 +179,12 @@ class AutomaticUI:
             self.header,
             self.mask_output_type,
         )
-        self.model_manager.save_rows_to_csv(rows, self.header)
+        save_rows_to_csv(rows, self.header)
         
         # Close UI after processing
         self.root.destroy()
 
-    # Shared header/page helpers live in img_pred_utils.
-
-
+    # ---------------------------------------------------------
     def _update_error(self, msg=""):
         """
         Updates the error message in the status bar
@@ -208,9 +192,3 @@ class AutomaticUI:
         :param msg (str): Error message string
         """
         self.error_label.config(text=msg)
-
-    # def _update_progress(self):
-    #     """
-    #     Updates the progress bar based on current image index
-    #     """
-    #     self.progress["value"] = self.current_img_index + 1
