@@ -82,7 +82,7 @@ The default structure should look like this:
 
 ```
 labelling-repo/
-├─ sam3/                    # -- SAM3 repository [Not included] -- #
+├─ sam3/                    # -- SAM3 repository -- #
 │   └─sam3/					# Required
 │   └─ Other files			# Unnecessary
 ```
