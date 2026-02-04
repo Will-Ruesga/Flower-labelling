@@ -165,7 +165,7 @@ def _plot_bbox(img_height, img_width, box, box_format="XYXY",
 
 
 # =================================================================================================
-def load_model(checkpoint_path: Path | str | None, bpe_path: Path | None):
+def load_model(checkpoint_path: Path, bpe_path: Path):
     """
     Load the SAM3 image model and its processor
     
@@ -175,8 +175,10 @@ def load_model(checkpoint_path: Path | str | None, bpe_path: Path | None):
     :return Sam3Processor: The processor for the loaded model
     """
     model = build_sam3_image_model(
-        bpe_path=str(bpe_path) if bpe_path is not None else None,
-        checkpoint_path=str(checkpoint_path) if checkpoint_path is not None else None,
+        bpe_path=str(bpe_path),
+        device="cuda",
+        eval_mode=True,
+        checkpoint_path=str(checkpoint_path),
+        load_from_HF=False,
     )
-
     return Sam3Processor(model)

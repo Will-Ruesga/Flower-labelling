@@ -22,7 +22,7 @@ BEHAVIORS = (NONE_B, [AUTO_B, PROMPT_B])
 PROJECT_ROOT = Path(__file__).resolve().parent
 SAM3_ROOT = PROJECT_ROOT / "sam3"
 BPE_PATH = SAM3_ROOT / "assets" / "bpe_simple_vocab_16e6.txt.gz"
-CKPT_PATH = PROJECT_ROOT / "checkpoints" / "model.safetensors"
+CKPT_PATH = PROJECT_ROOT / "checkpoints" / "sam3.pt"
 
 
 # ---------------------------------------------------------
