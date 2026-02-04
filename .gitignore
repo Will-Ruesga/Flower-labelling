@@ -17,9 +17,6 @@ __pycache__/
 *.tif
 *.png
 *.jpg
-correct_masks/
-incorrect_masks/
-mask_results.csv
 checkpoints/
 
 # Tests

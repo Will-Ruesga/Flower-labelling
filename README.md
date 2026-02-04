@@ -16,8 +16,14 @@ labelling-repo/
 │   └─ automatic_ui.py      # Automatic labelling UI tool
 │   └─ prompt_ui.py         # Prompt labelling UI tool
 ├─ image_predictor.py       # Main script to predict images
-├─ img_pred_utils.py        # Utility functions
+├─ utils                    # Utility functions
+│   └─ data_utils.py
+│   └─ image_utils.py
+│   └─ parsing_utils.py
+│   └─ plot_utils.py
 ├─ README.md
+├─ requiremtns.txt          # Requirements
+├─ wsl_sam3_setup.txt       # Set up instructions for WSL and SAM3
 ```
 
 ---

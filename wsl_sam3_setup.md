@@ -84,4 +84,4 @@ Once in the SAM3 directory run
 ---
 
 ### 5 - Model checkpoints
-SAM3 Model checkpoints have to be asked and downloaded from Huggingface
+SAM3 Model checkpoints should be resolved or have to be asked and downloaded from Huggingface
