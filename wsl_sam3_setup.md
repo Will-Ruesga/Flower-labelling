@@ -77,10 +77,25 @@ Dowload the model SAM3 in pip first clone the github and enter
 	git clone https://github.com/facebookresearch/sam3.git && cd sam3
 ```
 
-Once in the SAM3 directory run
+Once in the SAM3 repository, get only the sam3 folder.
+The default structure should look like this:
+
 ```
-	pip install -e .
+labelling-repo/
+├─ sam3/                    # -- SAM3 repository [Not included] -- #
+│   └─sam3/					# Required
+│   └─ Other files			# Unnecessary
 ```
+
+The only files used are inside sam3/sam3 therefore remvoe the rest 
+and put the subfolder as the main sam3 folder like so:
+
+```
+labelling-repo/
+├─ sam3/
+│   └─ files			# Here there are files like model_builder.py and some folders
+```
+
 ---
 
 ### 5 - Model checkpoints
