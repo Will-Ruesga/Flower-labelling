@@ -9,6 +9,9 @@ from utils.plot_utils import load_model
 from utils.data_utils import data_path_to_img_paths
 
 
+
+
+
 # =================================================================================================
 #                                        IMAGE LABELLING TOOL MAIN
 # =================================================================================================
