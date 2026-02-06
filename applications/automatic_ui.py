@@ -7,6 +7,9 @@ from utils.image_utils import filter_paths_by_num_pages, init_header_from_first_
 from utils.data_utils import save_rows_to_csv
 
 
+
+
+
 # =================================================================================================
 #                                       Automatic UI Class
 # =================================================================================================
@@ -179,7 +182,16 @@ class AutomaticUI:
             self.header,
             self.mask_output_type,
         )
-        save_rows_to_csv(rows, self.header)
+        pages_labeled = None
+        if self.expected_num_pages is not None:
+            pages_labeled = list(range(self.expected_num_pages))
+        save_rows_to_csv(
+            rows,
+            self.header,
+            prompt=self.prompt,
+            mask_output_type=self.mask_output_type,
+            pages_labeled=pages_labeled,
+        )
         
         # Close UI after processing
         self.root.destroy()

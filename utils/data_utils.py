@@ -1,8 +1,10 @@
 import os
+import re
 import pandas as pd
 
 from pathlib import Path
 
+from config import CSV_FILE_COL
 
 
 
@@ -13,7 +15,72 @@ from pathlib import Path
 # ---------------------------------------------------------
 # Save Rows to CSV
 # ---------------------------------------------------------
-def save_rows_to_csv(rows: list[dict], header: list[str]):
+def _slugify_component(value: str, fallback: str) -> str:
+    """
+    Convert a string into a safe filename component.
+
+    :param value: Raw string to convert
+    :param fallback: Fallback string if the result is empty
+    :return: Sanitized filename component
+    """
+    # Normalize and remove path separators
+    value = value.strip().lower()
+    value = value.replace(os.sep, "-")
+    # Replace whitespace with hyphens
+    value = re.sub(r"\s+", "-", value)
+    # Remove unsafe characters
+    value = re.sub(r"[^a-z0-9._-]+", "", value)
+    # Trim leftover separators
+    value = value.strip("-._")
+    return value or fallback
+
+
+def _format_pages_label(pages_labeled: list[int] | None) -> str:
+    """
+    Format page indices for filenames using 1-based display.
+
+    :param pages_labeled: List of 0-based page indices
+    :return: Page label string for the filename
+    """
+    if not pages_labeled:
+        return "all"
+    # De-duplicate and sort, then convert to 1-based for display
+    pages_sorted = sorted({int(p) for p in pages_labeled})
+    return "-".join(str(p + 1) for p in pages_sorted)
+
+
+def _build_output_csv_name(
+    image_path: Path,
+    prompt: str | None,
+    mask_output_type: str | None,
+    pages_labeled: list[int] | None,
+) -> str:
+    """
+    Build the output CSV filename based on dataset, prompt, pages, and mask type.
+
+    :param image_path: Absolute path of an image in the dataset
+    :param prompt: User prompt string
+    :param mask_output_type: "single" or "multiple"
+    :param pages_labeled: List of 0-based page indices
+    :return: Output CSV filename (with .csv extension)
+    """
+    # Derive dataset name from the parent folder of the image
+    dataset_name = _slugify_component(image_path.parent.name, "dataset")
+    # Sanitize prompt and mask type for safe filenames
+    prompt_name = _slugify_component(prompt or "prompt", "prompt")
+    mask_name = _slugify_component(mask_output_type or "mask", "mask")
+    # Encode selected pages (1-based for user readability)
+    pages_name = _format_pages_label(pages_labeled)
+    return f"{dataset_name}_p-{pages_name}_pr-{prompt_name}_tp-{mask_name}.csv"
+
+
+def save_rows_to_csv(
+    rows: list[dict],
+    header: list[str],
+    prompt: str | None = None,
+    mask_output_type: str | None = None,
+    pages_labeled: list[int] | None = None,
+):
     """
     Create or update CSV file and save it from row dictionaries
 
@@ -26,28 +93,34 @@ def save_rows_to_csv(rows: list[dict], header: list[str]):
     # Decide CSV location based on the first row's fileName (expected absolute)
     first_row = rows[0]
     image_path = None
-    if first_row.get("fileName"):
-        image_path = Path(first_row["fileName"])
+    if first_row.get(CSV_FILE_COL):
+        image_path = Path(first_row[CSV_FILE_COL])
 
     if image_path is None:
-        raise ValueError("Rows must include fileName to resolve CSV path.")
+        raise ValueError(f"Rows must include {CSV_FILE_COL} to resolve CSV path.")
 
     # Output CSV lives next to the images by default
     subfolder = False
+    csv_name = _build_output_csv_name(
+        image_path=image_path,
+        prompt=prompt,
+        mask_output_type=mask_output_type,
+        pages_labeled=pages_labeled,
+    )
     if subfolder:
-        csv_path = image_path.parent.parent / "output.csv"
+        csv_path = image_path.parent.parent / csv_name
     else:
-        csv_path = image_path.parent / "output.csv"
+        csv_path = image_path.parent / csv_name
 
     # Ensure csv path columns are set without mutating input rows
     rows_out = []
     for row in rows:
         row_out = dict(row)
-        if "fileName" in header:
+        if CSV_FILE_COL in header:
             # Store fileName relative to the CSV location
-            abs_img_path = row.get("fileName")
+            abs_img_path = row.get(CSV_FILE_COL)
             if abs_img_path:
-                row_out["fileName"] = os.path.relpath(abs_img_path, csv_path.parent)
+                row_out[CSV_FILE_COL] = os.path.relpath(abs_img_path, csv_path.parent)
         rows_out.append(row_out)
 
     # Convert rows to DataFrame
@@ -68,8 +141,8 @@ def save_rows_to_csv(rows: list[dict], header: list[str]):
     # Load old CSV
     df_old = read_csv_with_sep(csv_path)
 
-    if "fileName" in df_old.columns and "fileName" in df_new.columns:
-        df_old = df_old[~df_old["fileName"].isin(df_new["fileName"])]
+    if CSV_FILE_COL in df_old.columns and CSV_FILE_COL in df_new.columns:
+        df_old = df_old[~df_old[CSV_FILE_COL].isin(df_new[CSV_FILE_COL])]
 
     # Concatenate old + new rows
     df_final = pd.concat([df_old, df_new], ignore_index=True)
@@ -81,7 +154,13 @@ def save_rows_to_csv(rows: list[dict], header: list[str]):
 # ---------------------------------------------------------
 # Create/Update & Save the CSV
 # ---------------------------------------------------------
-def save_to_csv(out_dict: dict, header: list[str]):
+def save_to_csv(
+    out_dict: dict,
+    header: list[str],
+    prompt: str | None = None,
+    mask_output_type: str | None = None,
+    pages_labeled: list[int] | None = None,
+):
     """
     Create or update CSV file and save it
 
@@ -91,7 +170,13 @@ def save_to_csv(out_dict: dict, header: list[str]):
     if not out_dict:
         return
     rows = pd.DataFrame(out_dict).to_dict(orient="records")
-    save_rows_to_csv(rows, header)
+    save_rows_to_csv(
+        rows,
+        header,
+        prompt=prompt,
+        mask_output_type=mask_output_type,
+        pages_labeled=pages_labeled,
+    )
 
 
 # ---------------------------------------------------------
@@ -113,7 +198,7 @@ def data_path_to_img_paths(data_path: Path, data_type: str | None):
         df = read_csv_with_sep(data_path)
         # fileName is stored relative to the CSV location
         imgs_paths = []
-        for rel_path in df["fileName"].dropna().tolist():
+        for rel_path in df[CSV_FILE_COL].dropna().tolist():
             rel_path = Path(rel_path)
             if rel_path.is_absolute():
                 imgs_paths.append(str(rel_path))

@@ -2,6 +2,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog
 
+from config import CSV_FILE_COL, CSV_STATUS_COL
 from utils.data_utils import read_csv_with_sep
 
 
@@ -182,15 +183,17 @@ class TaskSelectionUI:
         if self.data_type == "csv":
             df = read_csv_with_sep(Path(self.data_abspath))
 
-            required_cols = {"fileName", "status"}
+            required_cols = {CSV_FILE_COL, CSV_STATUS_COL}
             if not required_cols.issubset(df.columns):
-                self._print_error("CSV is missing required columns: fileName, status.")
+                self._print_error(
+                    f"CSV is missing required columns: {CSV_FILE_COL}, {CSV_STATUS_COL}."
+                )
                 return
 
             # Check files exist
             csv_dir = Path(self.data_abspath).parent
             missing = []
-            for p in df["fileName"].dropna():
+            for p in df[CSV_FILE_COL].dropna():
                 img_path = Path(p)
                 if not img_path.is_absolute():
                     img_path = (csv_dir / img_path).resolve()

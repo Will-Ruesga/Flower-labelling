@@ -5,15 +5,12 @@ from typing import Dict, Optional, Any
 from tkinter import ttk
 from pathlib import Path
 
+from config import PROMPT_UI_BTN_HEIGHT, PROMPT_UI_BTN_WIDTH
 from model_manager import ModelManager
 from utils.data_utils import save_rows_to_csv
 from utils.plot_utils import render_image_with_mask
 from utils.image_utils import update_header_for_pages, filter_paths_by_num_pages
 from utils.parsing_utils import build_row_dict
-
-# Defines
-BTN_WIDTH = 12
-BTN_HEIGHT = 1
 
 
 
@@ -91,8 +88,8 @@ class PromptUI:
         # Button configuration
         self.common_kwargs = {
             "font": ("Arial", 14),
-            "width": BTN_WIDTH,
-            "height": BTN_HEIGHT,
+            "width": PROMPT_UI_BTN_WIDTH,
+            "height": PROMPT_UI_BTN_HEIGHT,
             "relief": "solid",
             "bd": 2,
         }
@@ -100,7 +97,7 @@ class PromptUI:
         self.common_kwargs_small = {
             "font": ("Arial", 8),
             "width": 2,
-            "height": BTN_HEIGHT,
+            "height": PROMPT_UI_BTN_HEIGHT,
             "relief": "solid",
             "bd": 2,
         }
@@ -711,7 +708,13 @@ class PromptUI:
             return
 
         rows = self.model_manager.run_model_bulk(remaining_paths, prompt, self.header, self.generation_mode)
-        save_rows_to_csv(rows, self.header)
+        save_rows_to_csv(
+            rows,
+            self.header,
+            prompt=prompt,
+            mask_output_type=self.generation_mode,
+            pages_labeled=self.valid_pages_to_label,
+        )
 
         # Close UI after processing
         self.root.destroy()
@@ -729,6 +732,8 @@ class PromptUI:
 
         :param status_value: determines the status os the mask values are -> 'correct', 'incorrect' or 'discarded'
         """
+        assert self.prompt_text is not None
+        
         # Clear errors
         self._update_error()
 
@@ -747,7 +752,15 @@ class PromptUI:
             status_label=status_value,
             header=self.header,
         )
-        save_rows_to_csv([row], self.header)
+        
+        prompt = self.prompt_text.get("1.0", "end-1c")
+        save_rows_to_csv(
+            [row],
+            self.header,
+            prompt=prompt,
+            mask_output_type=self.generation_mode,
+            pages_labeled=self.valid_pages_to_label,
+        )
         # Clear pages
         self.page_outputs = {p: None for p in self.valid_pages_to_label}
 

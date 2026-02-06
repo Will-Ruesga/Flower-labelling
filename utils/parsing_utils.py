@@ -4,6 +4,7 @@ import numpy as np
 
 from typing import Any, Dict
 
+from config import CSV_FILE_COL, CSV_STATUS_COL
 
 
 
@@ -171,8 +172,8 @@ def build_row_dict(image_path, num_pages: int, page_outputs, status_label: str, 
     img_path_str = str(image_path)
 
     # Store absolute path first; it gets converted to relative at save-time.
-    if "fileName" in header_set:
-        row["fileName"] = img_path_str
+    if CSV_FILE_COL in header_set:
+        row[CSV_FILE_COL] = img_path_str
 
     for page_idx in range(num_pages):
         output = get_page_output(page_outputs, page_idx)
@@ -207,7 +208,7 @@ def build_row_dict(image_path, num_pages: int, page_outputs, status_label: str, 
         if f"ZoomHeight{page_idx}" in header_set:
             row[f"ZoomHeight{page_idx}"] = zoom_h
 
-    if "status" in header_set:
-        row["status"] = status_label
+    if CSV_STATUS_COL in header_set:
+        row[CSV_STATUS_COL] = status_label
 
     return row

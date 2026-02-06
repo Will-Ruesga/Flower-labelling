@@ -1,4 +1,5 @@
 
+from config import CSV_FILE_COL, CSV_STATUS_COL
 from PIL import Image
 
 
@@ -24,7 +25,7 @@ def build_header_for_pages(num_pages: int) -> list[str]:
     """
     Builds the CSV header with per-page zoom/mask columns.
     """
-    base_cols = ["fileName", "status"]
+    base_cols = [CSV_FILE_COL, CSV_STATUS_COL]
     zoom_cols = []
     mask_cols = []
     for i in range(num_pages):
