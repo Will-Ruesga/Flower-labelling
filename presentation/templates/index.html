@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flower Labelling</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  {# Prompt-required gate: labelling and decision buttons only unlock once a prompt exists. #}
+  {% set has_prompt = view.prompt.text and view.prompt.text.strip() %}
+
+  {# Status pill — shown on top of the viewer frame. Explicit messages win;
+     otherwise nudge the user to insert a prompt, else plain "Ready." #}
+  {% if message %}
+    {% set status_text = message %}
+    {% set status_kind = view.status %}
+  {% elif view.setup.locked and not has_prompt %}
+    {% set status_text = "Insert prompt to label." %}
+    {% set status_kind = "info" %}
+  {% else %}
+    {% set status_text = "Ready." %}
+    {% set status_kind = "info" %}
+  {% endif %}
+
+  <main class="labelling-shell">
+
+    <header class="labelling-header">
+      <h1 class="t1">Flower Labelling</h1>
+      <span class="status status--{{ status_kind }} labelling-header__status" data-status-pill>{{ status_text }}</span>
+      <span class="labelling-header__meta" data-meta>
+        {% if view.finished %}
+          Finished.
+        {% elif view.dataset_size > 0 %}
+          Image {{ view.navigation.current_image_idx + 1 }} / {{ view.dataset_size }}
+          &middot; Page {{ view.navigation.current_page_idx }}
+        {% else %}
+          No dataset loaded.
+        {% endif %}
+      </span>
+    </header>
+
+    {% if view.finished %}
+
+    <section class="labelling-center labelling-finished">
+      <div class="panel panel--compact viewer-panel">
+        <div class="viewer-frame viewer-frame--finished">
+          <div class="finished-card">
+            <div class="finished-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="5 12 10 17 19 8"></polyline>
+              </svg>
+            </div>
+            <h2 class="t1">Labelling finished!</h2>
+            <p class="t5">{{ view.finished_message }}</p>
+            <form method="POST" action="/" style="margin-top: var(--space-4);">
+              <input type="hidden" name="action" value="reset_run">
+              <button type="submit" class="btn btn--primary">Start new run</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% else %}
+
+    <!-- ============ LEFT SIDEBAR ============ -->
+    <aside class="labelling-sidebar labelling-sidebar--left">
+
+      <section class="panel panel--compact">
+        <h2 class="panel__title">Setup</h2>
+
+        {% if not view.setup.probed %}
+          {# Stage 1: pick source #}
+          <form method="POST" action="/">
+            <input type="hidden" name="action" value="probe_source">
+
+            <div class="field">
+              <span class="form-label">Source type</span>
+              <div class="row-inline">
+                <label class="choice">
+                  <input type="radio" name="source_type" value="folder"
+                    {% if view.setup.source_type in ('', 'folder') %}checked{% endif %}>
+                  Folder
+                </label>
+                <label class="choice">
+                  <input type="radio" name="source_type" value="csv"
+                    {% if view.setup.source_type == 'csv' %}checked{% endif %}>
+                  CSV
+                </label>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="form-label" for="source_path">Source path</label>
+              <div class="path-picker">
+                <input id="source_path" class="input" type="text" name="source_path"
+                       value="{{ view.setup.source_path }}" autocomplete="off">
+                <button type="button" class="btn btn--soft" data-browse-open>Browse</button>
+              </div>
+            </div>
+
+            <div class="row-inline" style="margin-top: var(--space-3);">
+              <button type="submit" class="btn btn--primary btn--block">Set source</button>
+            </div>
+          </form>
+
+        {% elif not view.setup.locked %}
+          {# Stage 2: pick pages #}
+          <div class="field">
+            <span class="form-label">Source</span>
+            <div class="t6">{{ view.setup.source_type }} &middot; {{ view.setup.source_path }}</div>
+            <div class="t6">{{ view.dataset_size }} images &middot; {{ view.expected_num_pages }} page(s) each</div>
+          </div>
+
+          <form method="POST" action="/" id="pages-form">
+            <input type="hidden" name="action" value="confirm_setup">
+            <span class="form-label">Pages to label</span>
+            <div class="page-grid">
+              {% for i in range(view.expected_num_pages) %}
+                <label class="choice">
+                  <input type="checkbox" name="pages" value="{{ i }}">
+                  {{ i }}
+                </label>
+              {% endfor %}
+            </div>
+            <div class="row-inline" style="margin-top: var(--space-2);">
+              <button type="button" class="btn btn--soft btn--sm" data-pages-all>All</button>
+              <button type="button" class="btn btn--soft btn--sm" data-pages-none>None</button>
+            </div>
+            <div class="row-inline" style="margin-top: var(--space-3);">
+              <button type="submit" class="btn btn--primary btn--block">Confirm</button>
+            </div>
+          </form>
+
+        {% else %}
+          {# Locked: show summary #}
+          <div class="field">
+            <span class="form-label">Source</span>
+            <div class="t6">{{ view.setup.source_type }} &middot; {{ view.setup.source_path }}</div>
+          </div>
+          <div class="field">
+            <span class="form-label">Pages</span>
+            <div class="t6">{{ view.setup.pages_to_label | join(', ') }}</div>
+          </div>
+          {% if view.has_subdirs %}
+          <div class="field">
+            <span class="form-label">Subfolder</span>
+            <div class="t6" data-current-subfolder>{{ view.current_subfolder }}{% if view.current_subfolder and view.current_subfolder != "." %}/{% endif %}</div>
+          </div>
+          {% endif %}
+        {% endif %}
+
+        <form method="POST" action="/" style="margin-top: var(--space-2);">
+          <input type="hidden" name="action" value="reset_run">
+          <button type="submit" class="btn btn--danger btn--block btn--sm">Reset run</button>
+        </form>
+      </section>
+
+      {% if view.setup.locked %}
+        <section class="panel panel--compact">
+          <h2 class="panel__title">Prompt</h2>
+          <form method="POST" action="/">
+            <input type="hidden" name="action" value="set_prompt">
+            <textarea class="input" name="text" rows="3"
+                      placeholder="Type SAM3 prompt…">{{ view.prompt.text }}</textarea>
+            <button type="submit" class="btn btn--soft btn--block btn--sm"
+                    style="margin-top: var(--space-2);">Save prompt</button>
+          </form>
+
+          <div class="divider"></div>
+
+          <form method="POST" action="/" data-autosubmit>
+            <input type="hidden" name="action" value="set_generation_mode">
+            <span class="form-label">Mode</span>
+            <div class="segment" role="group" aria-label="Mask mode">
+              <label class="segment__btn {% if view.prompt.mode == 'single' %}is-active{% endif %}"
+                     data-mode-segment data-mode-value="single">
+                <input type="radio" name="mode" value="single" class="sr-only"
+                  {% if view.prompt.mode == 'single' %}checked{% endif %}>
+                single
+              </label>
+              <label class="segment__btn {% if view.prompt.mode == 'multiple' %}is-active{% endif %}"
+                     data-mode-segment data-mode-value="multiple">
+                <input type="radio" name="mode" value="multiple" class="sr-only"
+                  {% if view.prompt.mode == 'multiple' %}checked{% endif %}>
+                multiple
+              </label>
+            </div>
+          </form>
+
+          <div class="divider"></div>
+
+          <form method="POST" action="/" data-autosubmit>
+            <input type="hidden" name="action" value="set_confidence_threshold">
+            <label class="form-label" for="threshold-slider" data-threshold-label>
+              Confidence &mdash; {{ "%.2f"|format(view.prompt.threshold) }}
+            </label>
+            <input id="threshold-slider" type="range" name="threshold"
+                   min="0.05" max="0.95" step="0.05"
+                   value="{{ view.prompt.threshold }}"
+                   class="range">
+          </form>
+        </section>
+      {% endif %}
+
+    </aside>
+
+    <!-- ============ CENTER ============ -->
+    <section class="labelling-center">
+      <div class="panel panel--compact viewer-panel">
+        <div class="viewer-frame">
+          {% if view.viewer_image %}
+            <img src="{{ view.viewer_image }}" alt="Current page" data-viewer-img>
+          {% else %}
+            <span class="viewer-frame__empty">No image loaded.</span>
+          {% endif %}
+        </div>
+
+        {% if view.setup.locked %}
+          <nav class="page-pills" aria-label="Page navigation">
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="navigate_page">
+              <input type="hidden" name="step" value="-1">
+              <button type="submit" class="page-pill page-pill--arrow" aria-label="Previous page">&lsaquo;</button>
+            </form>
+            {% for p in view.setup.pages_to_label %}
+              <form method="POST" action="/">
+                <input type="hidden" name="action" value="jump_page">
+                <input type="hidden" name="page" value="{{ p }}">
+                <button type="submit"
+                        data-page-pill="{{ p }}"
+                        class="page-pill
+                               {% if p == view.navigation.current_page_idx %}page-pill--current{% endif %}
+                               {% if p in view.labelled_pages and p != view.navigation.current_page_idx %}page-pill--labelled{% endif %}"
+                        aria-label="Go to page {{ p }}"
+                        {% if p == view.navigation.current_page_idx %}aria-current="page"{% endif %}>
+                  {{ p }}
+                </button>
+              </form>
+            {% endfor %}
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="navigate_page">
+              <input type="hidden" name="step" value="1">
+              <button type="submit" class="page-pill page-pill--arrow" aria-label="Next page">&rsaquo;</button>
+            </form>
+          </nav>
+          <div class="progress-row">
+            <progress class="progress-bar" max="{{ view.dataset_size }}" value="{{ view.labelled_total_count }}" data-progress-bar></progress>
+            <span class="progress-caption" data-progress-caption>
+              Labelled {{ view.labelled_total_count }} / {{ view.dataset_size }}
+            </span>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- ============ RIGHT SIDEBAR ============ -->
+    <aside class="labelling-sidebar labelling-sidebar--right">
+
+      {% if view.setup.locked %}
+        <section class="panel panel--compact">
+          <h2 class="panel__title">View</h2>
+          <div class="field">
+            <label class="form-label" for="view-brightness">Brightness</label>
+            <input id="view-brightness" type="range" min="0.3" max="2" step="0.05" value="1"
+                   class="range" data-view-adjust="brightness">
+          </div>
+          <div class="field">
+            <label class="form-label" for="view-contrast">Contrast</label>
+            <input id="view-contrast" type="range" min="0.3" max="2" step="0.05" value="1"
+                   class="range" data-view-adjust="contrast">
+          </div>
+          <button type="button" class="btn btn--sm btn--block" data-view-reset>Reset</button>
+        </section>
+
+        <section class="panel panel--compact">
+          <h2 class="panel__title">Label</h2>
+
+          <div class="group-label">Run</div>
+          <div class="action-stack">
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="label_current_page">
+              <button type="submit" class="btn btn--primary btn--block"
+                      data-prompt-gate {% if not has_prompt %}disabled title="Insert a prompt first"{% endif %}>Label page</button>
+            </form>
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="label_current_image">
+              <button type="submit" class="btn btn--soft btn--block"
+                      data-prompt-gate {% if not has_prompt %}disabled title="Insert a prompt first"{% endif %}>Label image</button>
+            </form>
+            {% if view.has_subdirs %}
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="label_subdirectory">
+              <button type="submit" class="btn btn--soft btn--block"
+                      data-prompt-gate {% if not has_prompt %}disabled title="Insert a prompt first"{% endif %}>Label sub-directory</button>
+            </form>
+            {% endif %}
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="label_dataset">
+              <button type="submit" class="btn btn--soft btn--block"
+                      data-prompt-gate {% if not has_prompt %}disabled title="Insert a prompt first"{% endif %}>Label dataset</button>
+            </form>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="group-label">Clear</div>
+          <div class="row-inline">
+            <form method="POST" action="/" style="flex: 1;">
+              <input type="hidden" name="action" value="clear_current_page">
+              <button type="submit" class="btn btn--block btn--sm">Clear page</button>
+            </form>
+            <form method="POST" action="/" style="flex: 1;">
+              <input type="hidden" name="action" value="clear_current_image">
+              <button type="submit" class="btn btn--block btn--sm">Clear image</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="panel panel--compact">
+          <h2 class="panel__title">Decision</h2>
+          <div class="action-stack">
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="submit_decision">
+              <input type="hidden" name="status" value="correct">
+              <button type="submit" class="btn btn--success btn--block decision-btn"
+                      data-prompt-gate {% if not has_prompt %}disabled title="Insert a prompt first"{% endif %}>
+                <span class="decision-btn__glyph" aria-hidden="true">&check;</span> Correct
+              </button>
+            </form>
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="submit_decision">
+              <input type="hidden" name="status" value="incorrect">
+              <button type="submit" class="btn btn--warning btn--block decision-btn"
+                      data-prompt-gate {% if not has_prompt %}disabled title="Insert a prompt first"{% endif %}>
+                <span class="decision-btn__glyph" aria-hidden="true">!</span> Incorrect
+              </button>
+            </form>
+            <form method="POST" action="/">
+              <input type="hidden" name="action" value="submit_decision">
+              <input type="hidden" name="status" value="discard">
+              <button type="submit" class="btn btn--danger btn--block decision-btn"
+                      data-prompt-gate {% if not has_prompt %}disabled title="Insert a prompt first"{% endif %}>
+                <span class="decision-btn__glyph" aria-hidden="true">&times;</span> Discard
+              </button>
+            </form>
+          </div>
+        </section>
+      {% endif %}
+
+    </aside>
+
+    {% endif %}
+
+  </main>
+
+  <!-- ============ BROWSE DIALOG ============ -->
+  <div class="dialog" id="browse-dialog" hidden>
+    <div class="dialog__backdrop" data-browse-close></div>
+    <div class="dialog__body">
+      <div class="dialog__header">
+        <h2 class="t2">Select source</h2>
+        <button type="button" class="btn btn--sm btn--icon" data-browse-close aria-label="Close">×</button>
+      </div>
+      <div class="browser__crumbs" id="browse-crumbs"></div>
+      <div class="browser" id="browse-list"></div>
+      <div class="dialog__footer">
+        <span class="t6" id="browse-mode-hint"></span>
+        <button type="button" class="btn btn--sm" data-browse-close>Cancel</button>
+        <button type="button" class="btn btn--primary btn--sm" id="browse-use">Use this folder</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='browse.js') }}"></script>
+</body>
+</html>

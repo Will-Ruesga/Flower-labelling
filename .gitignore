@@ -1,24 +1,39 @@
-# Ignore full sam folders
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Environments
+.venv/
+.venv-labelling/
+venv/
+.env
+.env.*
+
+# Model weights & vendored lib
+checkpoints/
 sam3/
 
-# Environment
-.venv-labelling/
-.venv-lab-test/
-.labelling/
-.env
+# Claude
+.claude/
+CLAUDE.md
 
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
+# Docs & internal specs
+docs/
+style.md
+summary.md
 
-# Data
-*.tiff
-*.tif
-*.png
-*.jpg
-checkpoints/
+# Build / packaging
+build/
+dist/
+*.egg-info/
 
-# Tests
-applications/prompt_/
-text_polygon.py
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

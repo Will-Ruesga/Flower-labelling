@@ -1,0 +1,141 @@
+/*
+ * Tokens and body defaults. Source of truth: ../../../../style.md
+ * Structural tokens (typography, radius, spacing) are theme-independent.
+ * Color tokens live under :root as a single light palette; adding a dark
+ * theme later means scoping a second palette to [data-theme="dark"] without
+ * touching this file's structural half.
+ */
+
+:root {
+  --font-family-base: "Trebuchet MS", "Segoe UI Variable", "Avenir Next", sans-serif;
+
+  /* Typography tiers */
+  --t1-size: clamp(1.5rem, 2vw, 1.9rem);
+  --t1-weight: 700;
+  --t2-size: 1rem;
+  --t2-weight: 700;
+  --t3-size: 0.9rem;
+  --t3-weight: 700;
+  --t4-size: 0.88rem;
+  --t4-weight: 400;
+  --t5-size: 0.8rem;
+  --t5-weight: 400;
+  --t6-size: 0.78rem;
+  --t6-weight: 400;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.4rem;
+  --space-3: 0.55rem;
+  --space-4: 0.75rem;
+  --space-5: 1rem;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  /* Z-index scale */
+  --z-base: 0;
+  --z-raised: 5;
+  --z-menu: 20;
+  --z-dialog: 40;
+
+  /* Motion */
+  --motion-fast: 120ms ease;
+  --motion-med: 180ms ease;
+}
+
+/* ---------- Light palette (default) ---------- */
+
+:root,
+[data-theme="light"] {
+  --bg: #eceff4;
+  --bg-glow-1: #f7fbff;
+  --bg-glow-2: #e2e9f5;
+
+  --panel: #f9fafb;
+  --panel-strong: #ffffff;
+  --line: #c9d3df;
+  --line-strong: #95a8bd;
+
+  --text: #152336;
+  --text-strong: #132844;
+  --muted: #5e6f83;
+  --accent: #2a5c97;
+  --accent-soft: #dce8f7;
+
+  --h1-surface: #eceff4;
+  --h2-surface: transparent;
+  --h3-surface: #ffffff;
+  --h4-surface: #f5f8fc;
+  --h5-surface: #ffffff;
+  --h6-surface: #ffffff;
+  --h3-border: #95a8bd;
+  --h4-border: #c9d3df;
+
+  --control-bg: #ffffff;
+  --control-bg-soft: #ecf3fb;
+  --control-text: #3f5674;
+  --control-text-strong: #1f4066;
+  --control-border: #95a8bd;
+
+  --primary-bg: #2a5c97;
+  --primary-text: #ffffff;
+  --success-bg: #eaf9ee;
+  --success-border: #8fce9d;
+  --success-text: #20573b;
+  --warning-bg: #fdf4e1;
+  --warning-border: #e2c281;
+  --warning-text: #7a5210;
+  --error-bg: #fdeeed;
+  --error-border: #e4a7a2;
+  --error-text: #7c2a2a;
+  --info-bg: #eaf1fb;
+  --info-border: #a8c2e4;
+  --info-text: #1f4066;
+
+  --focus-ring: #9bb8dc;
+  --shadow-menu: 0 4px 14px rgba(17, 38, 64, 0.14);
+  --shadow-dialog: 0 10px 30px rgba(17, 38, 64, 0.22);
+
+  --page-bg:
+    radial-gradient(circle at top left, var(--bg-glow-1) 0%, transparent 42%),
+    radial-gradient(circle at bottom right, var(--bg-glow-2) 0%, transparent 45%),
+    var(--bg);
+
+  --t1-color: var(--text);
+  --t2-color: var(--text);
+  --t3-color: var(--accent);
+  --t4-color: var(--text);
+  --t5-color: var(--muted);
+  --t6-color: var(--muted);
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: var(--font-family-base);
+  font-size: var(--t4-size);
+  font-weight: var(--t4-weight);
+  overflow: hidden;
+}
+
+h1, h2, h3, h4, h5, h6, p { margin: 0; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}

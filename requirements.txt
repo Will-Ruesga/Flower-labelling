@@ -1,0 +1,16 @@
+flask
+pandas
+pillow
+numpy
+opencv-python
+torch
+torchvision
+huggingface_hub
+iopath
+einops
+timm
+decord
+pycocotools
+psutil
+ftfy
+regex

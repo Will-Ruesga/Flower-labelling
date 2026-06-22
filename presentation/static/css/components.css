@@ -1,0 +1,305 @@
+/*
+ * Shared components. Source of truth: ../../../../style.md section 4.
+ * Every class here maps to a tier (H1-H6 for surfaces, T1-T6 for text).
+ * Page CSS files must NOT redefine these.
+ */
+
+/* ---------- Typography helpers ---------- */
+
+.t1 { font-size: var(--t1-size); font-weight: var(--t1-weight); color: var(--t1-color); }
+.t2 { font-size: var(--t2-size); font-weight: var(--t2-weight); color: var(--t2-color); }
+.t3 { font-size: var(--t3-size); font-weight: var(--t3-weight); color: var(--t3-color); }
+.t4 { font-size: var(--t4-size); font-weight: var(--t4-weight); color: var(--t4-color); }
+.t5 { font-size: var(--t5-size); font-weight: var(--t5-weight); color: var(--t5-color); }
+.t6 { font-size: var(--t6-size); font-weight: var(--t6-weight); color: var(--t6-color); }
+
+/* ---------- Panels (H3 / H4) ---------- */
+
+.panel {
+  border: 1px solid var(--h3-border);
+  border-radius: var(--radius-xl);
+  background: var(--h3-surface);
+  padding: var(--space-4);
+}
+
+.panel--soft {
+  border: 1px solid var(--h4-border);
+  border-radius: var(--radius-md);
+  background: var(--h4-surface);
+  padding: var(--space-3);
+}
+
+.panel__title {
+  font-size: var(--t3-size);
+  font-weight: var(--t3-weight);
+  color: var(--t3-color);
+  margin-bottom: var(--space-3);
+}
+
+/* ---------- Buttons (H5) ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--control-bg);
+  color: var(--control-text);
+  font: inherit;
+  font-size: var(--t5-size);
+  font-weight: var(--t5-weight);
+  line-height: 1.2;
+  padding: 0.36rem 0.58rem;
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast), transform var(--motion-fast);
+}
+
+.btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.btn:hover:not(:disabled) { background: var(--control-bg-soft); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn--soft    { background: var(--control-bg-soft); color: var(--control-text-strong); }
+.btn--sm      { padding: 0.22rem 0.45rem; font-size: var(--t6-size); }
+.btn--lg      { font-size: var(--t4-size); padding: 0.45rem 0.7rem; min-height: 2rem; }
+.btn--icon    { width: 1.9rem; height: 1.9rem; min-width: 1.9rem; padding: 0; }
+.btn--block   { width: 100%; }
+
+.btn--primary { background: var(--primary-bg); border-color: var(--primary-bg); color: var(--primary-text); }
+.btn--primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+
+.btn--success { background: var(--success-bg); border-color: var(--success-border); color: var(--success-text); }
+.btn--warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
+.btn--danger  { background: var(--error-bg);   border-color: var(--error-border);   color: var(--error-text); }
+
+/* ---------- Form controls (H5) ---------- */
+
+.input {
+  width: 100%;
+  border: 1px solid var(--h4-border);
+  border-radius: var(--radius-sm);
+  background: var(--control-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--t4-size);
+  padding: 0.35rem 0.5rem;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  outline: none;
+}
+
+.input:disabled {
+  background: var(--control-bg-soft);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.input--sm { padding: 0.22rem 0.4rem; font-size: var(--t5-size); }
+
+textarea.input { resize: vertical; min-height: 2.6rem; }
+
+.form-label {
+  display: block;
+  color: var(--t5-color);
+  font-size: var(--t5-size);
+  font-weight: var(--t5-weight);
+  margin-bottom: var(--space-1);
+}
+
+.form-helper {
+  color: var(--t5-color);
+  font-size: var(--t5-size);
+  margin-top: var(--space-1);
+}
+
+.form-error {
+  border: 1px solid var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.55rem;
+  font-size: var(--t6-size);
+}
+
+.field { display: flex; flex-direction: column; gap: var(--space-1); }
+.field + .field { margin-top: var(--space-3); }
+
+/* Composite: input + browse button joined */
+.path-picker { display: flex; align-items: stretch; }
+.path-picker .input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right-width: 0;
+}
+.path-picker .btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  white-space: nowrap;
+}
+
+/* ---------- Segmented control (H5) ---------- */
+
+.segment {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.segment__btn {
+  border: 0;
+  background: transparent;
+  color: var(--t5-color);
+  font: inherit;
+  font-size: var(--t6-size);
+  padding: 0.22rem 0.55rem;
+  cursor: pointer;
+}
+
+.segment__btn.is-active {
+  background: var(--accent-soft);
+  color: var(--control-text-strong);
+  font-weight: 700;
+}
+
+/* ---------- Status (H5) ---------- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.55rem;
+  font-size: var(--t6-size);
+  background: var(--h5-surface);
+}
+
+.status--ok      { background: var(--success-bg); border-color: var(--success-border); color: var(--success-text); }
+.status--info    { background: var(--info-bg);    border-color: var(--info-border);    color: var(--info-text); }
+.status--warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
+.status--error   { background: var(--error-bg);   border-color: var(--error-border);   color: var(--error-text); }
+
+/* ---------- Tag (H6, compact inline marker) ---------- */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.08rem 0.45rem;
+  font-size: var(--t6-size);
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--h5-surface);
+  color: var(--muted);
+}
+
+.tag--ok { background: var(--success-bg); border-color: var(--success-border); color: var(--success-text); }
+
+/* ---------- Dialog (H6) ---------- */
+
+.dialog { position: fixed; inset: 0; z-index: var(--z-dialog); }
+.dialog[hidden] { display: none; }
+
+.dialog__backdrop {
+  position: absolute; inset: 0;
+  background: rgba(17, 38, 64, 0.32);
+}
+
+.dialog__body {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--h3-surface);
+  border: 1px solid var(--h3-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-dialog);
+  padding: var(--space-4);
+  gap: var(--space-3);
+}
+
+.dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ---------- Browser (H5) ---------- */
+
+.browser {
+  border: 1px solid var(--h4-border);
+  border-radius: var(--radius-md);
+  background: var(--h4-surface);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 200px;
+}
+
+.browser__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: var(--t5-size);
+  color: var(--muted);
+}
+
+.browser__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.3rem 0.55rem;
+  font-size: var(--t4-size);
+  color: var(--text);
+  border: 0;
+  width: 100%;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--h4-border);
+  font-family: inherit;
+}
+
+.browser__row:last-child { border-bottom: 0; }
+.browser__row:hover { background: var(--control-bg-soft); }
+
+.browser__row--dir::before  { content: "📁"; }
+.browser__row--file::before { content: "📄"; }
+
+.browser__empty {
+  padding: 0.6rem 0.55rem;
+  color: var(--muted);
+  font-size: var(--t6-size);
+  font-style: italic;
+}
+
+/* ---------- Menu (H6, reserved for future use) ---------- */
+
+.menu {
+  position: fixed;
+  min-width: 140px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--h6-surface);
+  padding: 0.2rem;
+  box-shadow: var(--shadow-menu);
+  z-index: var(--z-menu);
+}

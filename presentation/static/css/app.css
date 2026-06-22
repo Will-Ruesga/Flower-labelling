@@ -1,0 +1,316 @@
+/*
+ * Unified Labelling page — layout only.
+ * Shared widgets live in components.css; never re-style them here.
+ */
+
+.labelling-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 210px;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-3);
+  height: 100vh;
+  padding: var(--space-3);
+}
+
+.labelling-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-2);
+}
+
+.labelling-header__meta {
+  font-size: var(--t5-size);
+  color: var(--muted);
+}
+
+/* Status pill lives in the header, vertically centred with the title. */
+.labelling-header__status {
+  margin: 0 auto;
+  box-shadow: var(--shadow-menu);
+}
+
+.labelling-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.labelling-sidebar--left  { grid-column: 1; grid-row: 2; }
+.labelling-sidebar--right { grid-column: 3; grid-row: 2; }
+
+.labelling-center {
+  grid-column: 2; grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+/* When a run is finished, the center panel spans the whole middle row. */
+.labelling-finished { grid-column: 1 / -1; }
+
+.viewer-frame--finished {
+  border-style: solid;
+}
+
+.finished-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.finished-card__icon {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 2px solid var(--success-border);
+  margin-bottom: var(--space-2);
+}
+
+.finished-card__icon svg {
+  width: 42px;
+  height: 42px;
+}
+
+/* Small group heading inside a sidebar panel. */
+.group-label {
+  font-size: var(--t6-size);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+
+/* Decision buttons get a leading glyph for faster scanning. */
+.decision-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.decision-btn__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Per-panel compaction overrides (layout spacing only). */
+.panel--compact { padding: var(--space-3); }
+.panel--compact .panel__title { margin-bottom: var(--space-2); }
+
+/* Viewer panel fills remaining vertical space. */
+.viewer-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.viewer-frame {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  background: var(--h4-surface);
+  border: 1px dashed var(--h4-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Spinner overlay on the viewer while any form is submitting. */
+body.is-submitting .viewer-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(236, 239, 244, 0.65);
+  backdrop-filter: blur(1px);
+  z-index: var(--z-raised);
+}
+body.is-submitting .viewer-frame::before {
+  content: "";
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid var(--h4-border);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+  z-index: calc(var(--z-raised) + 1);
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.viewer-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  /* Viewer-only brightness/contrast, driven by the View panel sliders.
+     Pure CSS — never touches what SAM3 receives. */
+  filter: brightness(var(--viewer-brightness, 1)) contrast(var(--viewer-contrast, 1));
+}
+
+/* Compact range slider — minimal styling, let the browser do the rest. */
+.range {
+  width: 100%;
+  accent-color: var(--accent);
+  margin-top: var(--space-1);
+}
+
+.viewer-frame__empty {
+  color: var(--muted);
+  font-size: var(--t5-size);
+  font-style: italic;
+}
+
+/* Compact pill-style page navigator: ‹ 0 1 2 3 › */
+.page-pills {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.page-pills form { margin: 0; }
+
+.page-pill {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--t5-size);
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
+}
+
+.page-pill:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.page-pill--current {
+  background: var(--accent);
+  color: var(--primary-text);
+  border-color: var(--accent);
+}
+
+.page-pill--current:hover {
+  background: var(--accent);
+  color: var(--primary-text);
+}
+
+.page-pill--labelled {
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.page-pill--arrow {
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+/* Action clusters inside the right sidebar. */
+.action-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.divider {
+  height: 1px;
+  background: var(--h4-border);
+  margin: var(--space-2) 0;
+}
+
+/* Inline rows for radios, segment + label, etc. */
+.row-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Submitting form: all controls visually dim and unclickable while the server works. */
+.is-submitting {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+/* Responsive grid for page-selection checkboxes. */
+.page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: var(--space-1);
+}
+
+/* Compact radio/checkbox row styling, no shared widget needed. */
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--t5-size);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.choice input { margin: 0; }
+
+/* Dataset-wide progress bar below the page-pill nav. */
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-2);
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  appearance: none;
+  border: 1px solid var(--accent-soft);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+.progress-bar::-webkit-progress-bar { background: var(--accent-soft); }
+.progress-bar::-webkit-progress-value { background: var(--accent); }
+.progress-bar::-moz-progress-bar { background: var(--accent); }
+
+.progress-caption {
+  font-size: var(--t6-size);
+  color: var(--muted);
+  white-space: nowrap;
+}
