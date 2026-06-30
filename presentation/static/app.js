@@ -5,6 +5,19 @@
   // progress bar / status pill / viewer update live as each image completes.
   var BULK_ACTIONS = { "label_dataset": true, "label_subdirectory": true };
 
+  // Drop any submit while one request is already running. Without this, rapid
+  // clicks (e.g. mashing Discard) fire overlapping requests whose responses
+  // come back out of order — the viewer would jump to a stale image and saves
+  // could be lost. Cleared once the in-flight request settles.
+  var inFlight = false;
+
+  // A decision (Correct/Incorrect/Discard) advances to the next image, so a
+  // burst of clicks would skip past where you meant to stop. Enforce a minimum
+  // gap between decisions: extra clicks inside the window are ignored, not
+  // queued. Other actions (label, navigate) are not throttled.
+  var DECISION_COOLDOWN_MS = 350;
+  var lastDecisionTs = 0;
+
   // --- AJAX submit interceptor. Posts forms to /api/action and applies the
   //     returned RunViewState in-place. Bulk actions are routed to /api/bulk
   //     instead, which streams events back. Falls back to a full reload when
@@ -14,21 +27,32 @@
     var form = e.target;
     if (form.hasAttribute("data-no-ajax")) return;
     e.preventDefault();
+    if (inFlight) return;
     var body = new FormData(form);
     var action = body.get("action");
     if (BULK_ACTIONS[action]) {
       runBulkStream(action);
       return;
     }
+    if (action === "submit_decision") {
+      var now = Date.now();
+      if (now - lastDecisionTs < DECISION_COOLDOWN_MS) return;
+      lastDecisionTs = now;
+    }
+    inFlight = true;
     document.body.classList.add("is-submitting");
     fetch("/api/action", { method: "POST", body: body })
       .then(function (r) { return r.json(); })
       .then(applyResponse)
       .catch(function () { location.reload(); })
-      .finally(function () { document.body.classList.remove("is-submitting"); });
+      .finally(function () {
+        inFlight = false;
+        document.body.classList.remove("is-submitting");
+      });
   });
 
   function runBulkStream(action) {
+    inFlight = true;
     document.body.classList.add("is-submitting");
     var src = new EventSource("/api/bulk?action=" + encodeURIComponent(action));
     var done = false;
@@ -39,12 +63,14 @@
       var data = JSON.parse(ev.data);
       done = true;
       src.close();
+      inFlight = false;
       document.body.classList.remove("is-submitting");
       if (data.full_reload) location.reload();
     });
     src.onerror = function () {
       if (done) return;
       src.close();
+      inFlight = false;
       document.body.classList.remove("is-submitting");
       location.reload();
     };
@@ -126,11 +152,17 @@
 
   function setPromptGate(view) {
     var hasPrompt = view.prompt && view.prompt.text && view.prompt.text.trim();
+    var hasDetection = view.has_detection;
     document.querySelectorAll("[data-prompt-gate]").forEach(function (btn) {
-      btn.disabled = !hasPrompt;
+      var needsDetection = btn.hasAttribute("data-detection-gate");
       if (!hasPrompt) {
+        btn.disabled = true;
         btn.setAttribute("title", "Insert a prompt first");
+      } else if (needsDetection && !hasDetection) {
+        btn.disabled = true;
+        btn.setAttribute("title", "Nothing detected — only Discard is available");
       } else {
+        btn.disabled = false;
         btn.removeAttribute("title");
       }
     });

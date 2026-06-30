@@ -300,11 +300,14 @@ def submit_decision(status: str) -> ModuleResult:
         return guard
     if status not in _VALID_STATUSES:
         return _fail(ctx, "invalid status", "Invalid status.")
-    if not ctx.output.page_outputs:
+    # Correct/Incorrect describe a detection, so they require one. Discard means
+    # "nothing here, move on" — it's always allowed (even with no labelled page)
+    # so the user can skip empty images straight to the next one.
+    if status in (TASK_CORRECT, TASK_INCORRECT) and not _has_detection(ctx):
         return _fail(
             ctx,
-            "label at least one page before submitting a decision",
-            "Label at least one page before submitting.",
+            "no detection to mark correct/incorrect; use discard to skip",
+            "Nothing detected — only Discard is available.",
         )
 
     image_path = ctx.dataset.imgs_paths[ctx.navigation.current_image_idx]
@@ -363,6 +366,7 @@ def _view(ctx: RunContext, status: str, message: str) -> RunViewState:
         has_subdirs=ctx.dataset.has_subdirs,
         current_subfolder=_current_subfolder(ctx),
         labelled_total_count=len(_labelled_filenames(ctx)),
+        has_detection=_has_detection(ctx),
         finished=ctx.finished,
         finished_message=ctx.finished_message,
     )
@@ -373,6 +377,11 @@ def _require_locked(ctx: RunContext) -> ModuleResult | None:
     if not ctx.setup.locked:
         return _fail(ctx, "setup not locked", "Confirm setup first.")
     return None
+
+
+def _has_detection(ctx: RunContext) -> bool:
+    """True if any labelled page of the current image produced at least one mask."""
+    return any(out and out.get("masks") for out in ctx.output.page_outputs.values())
 
 
 def _require_prompt(ctx: RunContext) -> ModuleResult | None:

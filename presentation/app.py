@@ -1,6 +1,8 @@
 """Flask entrypoint — single route, action dispatch, template rendering."""
 
 import json
+import os
+import threading
 from dataclasses import asdict
 from pathlib import Path
 
@@ -16,8 +18,29 @@ from shared import ModuleResult, RunViewState
 app = Flask(__name__)
 
 
+# The dev server is multi-threaded but the RunContext is shared mutable state.
+# Serialise every context-mutating dispatch so rapid clicks (e.g. hammering
+# Discard) can't race on the navigation pointer, drop saves, or corrupt the CSV.
+_action_lock = threading.Lock()
+
+
 # Actions that change page-level structure and need a full reload to re-render.
 _FULL_RELOAD_ACTIONS = {"probe_source", "confirm_setup", "reset_run", "label_dataset"}
+
+
+@app.context_processor
+def _inject_asset_version():
+    """Expose ``asset_v(filename)`` to templates for cache-busting static assets.
+
+    Appending the file mtime to the URL means the browser refetches app.js/CSS
+    the moment they change, instead of serving a stale cached copy.
+    """
+    def asset_v(filename: str) -> int:
+        try:
+            return int(os.path.getmtime(os.path.join(app.static_folder, filename)))
+        except OSError:
+            return 0
+    return {"asset_v": asset_v}
 
 
 def _view_to_dict(view: RunViewState | None) -> dict | None:
@@ -30,16 +53,17 @@ def _view_to_dict(view: RunViewState | None) -> dict | None:
 @app.route("/", methods=["GET", "POST"])
 def index():
     """Serve the unified page (GET) and dispatch form actions (POST)."""
-    if request.method == "GET":
-        result = application.start_run()
-    else:
-        action = request.form.get("action", "")
-        handler = _ACTIONS.get(action)
-        if handler is None:
-            base = application.start_run()
-            result = ModuleResult(ok=False, message=f"unknown action: {action}", data=base.data)
+    with _action_lock:
+        if request.method == "GET":
+            result = application.start_run()
         else:
-            result = handler()
+            action = request.form.get("action", "")
+            handler = _ACTIONS.get(action)
+            if handler is None:
+                base = application.start_run()
+                result = ModuleResult(ok=False, message=f"unknown action: {action}", data=base.data)
+            else:
+                result = handler()
     return render_template(
         "index.html",
         view=result.data,
@@ -118,7 +142,8 @@ def api_action():
     handler = _ACTIONS.get(action)
     if handler is None:
         return jsonify({"ok": False, "message": f"unknown action: {action}"}), 400
-    result = handler()
+    with _action_lock:
+        result = handler()
     # Reload only on success — a failed action keeps the user on the same screen
     # so the error message is visible rather than wiped by a redirect.
     finished = bool(result.data is not None and getattr(result.data, "finished", False))

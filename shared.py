@@ -118,5 +118,6 @@ class RunViewState:
     has_subdirs: bool = False
     current_subfolder: str = ""
     labelled_total_count: int = 0
+    has_detection: bool = False
     finished: bool = False
     finished_message: str = ""
